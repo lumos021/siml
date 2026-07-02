@@ -1,0 +1,32 @@
+node_modules/
+dist/
+.next/
+out/
+
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+
+# Python reference impl / venv
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# SIML artifacts
+*.siml
+!test/fixtures/*.siml
+
+# Stray local build/test outputs (not source)
+/test-output*
+**/temp-watermarked-*
+**/temp-oriented-*
+**/siml-registry.json
+**/.siml-registry.json
+**/test/output/
+**/test/output-preserve/
+**/.sample-tmp/
+
+
+.vercel

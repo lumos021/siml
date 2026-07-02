@@ -1,0 +1,20 @@
+{
+  "name": "siml-reader",
+  "version": "0.1.0",
+  "description": "Browser library for rendering .siml files",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "browser": "src/index.js",
+  "dependencies": {
+    "pako": "^2.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "jest-environment-jsdom": "^29.0.0",
+    "esbuild": "^0.19.0"
+  },
+  "scripts": {
+    "build": "esbuild src/index.js --bundle --minify --outfile=dist/siml-reader.min.js",
+    "test": "jest --env jsdom"
+  }
+}

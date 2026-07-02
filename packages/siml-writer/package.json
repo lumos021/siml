@@ -1,0 +1,22 @@
+{
+  "name": "siml-writer",
+  "version": "0.1.0",
+  "description": "Creates .siml files from images and text layer definitions",
+  "main": "src/index.js",
+  "bin": {
+    "siml-write": "src/cli.js"
+  },
+  "dependencies": {
+    "sharp": "^0.33.0",
+    "commander": "^11.0.0",
+    "ajv": "^8.12.0",
+    "pako": "^2.1.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
+  "scripts": {
+    "build": "echo no-op",
+    "test": "jest"
+  }
+}
