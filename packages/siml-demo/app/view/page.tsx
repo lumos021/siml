@@ -508,6 +508,11 @@ export default function ViewPage() {
   async function resolvePipeline(buffer: ArrayBuffer, imgElForFallback?: HTMLImageElement) {
     const logs: string[] = [];
     logs.push("🔍 Resolution pipeline triggered...");
+    // Log what actually arrived: dimensions tell us what a platform's transcode
+    // did to the image (resize kills T1 below ~900px; see spec §4.6).
+    if (imgElForFallback) {
+      logs.push(`delivered image: ${imgElForFallback.naturalWidth}x${imgElForFallback.naturalHeight}, ${(buffer.byteLength / 1024).toFixed(0)} KB`);
+    }
 
     // TIER 0: JUMBF Container Check
     logs.push("T0: Checking JUMBF metadata boxes...");
@@ -620,8 +625,22 @@ export default function ViewPage() {
 
       if (match) {
         logs.push(`✅ T2 Registry Match (verified). Retrieved full text layer.`);
+        // Staleness (spec §9.3) applies to T2 recoveries too: `dhash` is the same
+        // perceptual digest machinery as pixelDigest, computed above from the
+        // delivered pixels. Legit degradation (re-encode/downscale/screenshot)
+        // measures <= 6 bits; a content edit measures 44-58, so a registry entry
+        // whose pixels were since edited shows as unverified with actions off.
+        let t2Stale = false;
+        if (match.entry?.pixelDigest) {
+          const d = hammingHex(match.entry.pixelDigest, dhash);
+          t2Stale = d > STALE_THRESHOLD;
+          logs.push(t2Stale
+            ? `⚠️ STALE: registry layer's pixelDigest mismatches delivered pixels (dist ${d} > ${STALE_THRESHOLD}) - suppressing actions.`
+            : `🔒 Fresh: pixelDigest matches delivered pixels (dist ${d}).`);
+        }
+        setStale(t2Stale);
         setMeta(match.entry);
-        setActiveTier(`T2 Registry ${t1Text ? "(with T1 Offline Fallback)" : ""}`);
+        setActiveTier(`T2 Registry${t2Stale ? " - STALE" : ""} ${t1Text ? "(with T1 Offline Fallback)" : ""}`);
         setResolutionLogs(logs);
         return;
       }
