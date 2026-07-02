@@ -148,6 +148,8 @@ The novelty is the **combination**: a positioned, copyable, semantically-typed t
 ## Documentation
 
 - [SIML-SPEC-v0.3.md](SIML-SPEC-v0.3.md) - current spec (tri-layer + measured robustness)
+- [SIML-SPEC-v0.4-draft.md](SIML-SPEC-v0.4-draft.md) - draft: verified visible text (checksum-guided OCR, working prototype)
+- [ROADMAP.md](ROADMAP.md) - where this is going, honestly stated
 - [SIML-SPEC-v0.2.md](SIML-SPEC-v0.2.md) - the JUMBF carrier + text-layer schema
 - [siml_watermark.py](siml_watermark.py) - validated Tier-1 reference + self-test
 - [siml_preserve.py](siml_preserve.py) - verified Level-P preservation hook + adversarial tests
