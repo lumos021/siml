@@ -44,10 +44,9 @@ function cRsEncode (data, nsym) {
 const SYNC_TAG = 0xD4B3
 const Q = 26
 const QIM_MARGIN = 18 // MUST match siml-writer
-const QIM_MARGIN_SMOOTH = 12
-const SMOOTH_STDDEV = 3
 const TEXTURE_EMBED_STDDEV = 8
 const MIN_TEXTURED_REPS = 8
+const Q_SMOOTH = 13
 const RS_NSYM = 4
 const cosTable = new Float32Array(8 * 8)
 for (let u = 0; u < 8; u++) for (let x = 0; x < 8; x++) cosTable[u * 8 + x] = Math.cos(((2 * x + 1) * u * Math.PI) / 16)
@@ -117,8 +116,11 @@ function portEmbed (rgba, width, height, text) {
     }
   }
   const selective = eligible >= MIN_TEXTURED_REPS * bits.length
+  if (!selective) {
+    for (let i = 0; i < mask.length; i++) if (!mask[i]) mask[i] = 2
+  }
   const EMBED_PASSES = 3
-  for (let pass = 0; pass < EMBED_PASSES; pass++) portEmbedPass(rgba, width, height, bits, selective ? mask : null)
+  for (let pass = 0; pass < EMBED_PASSES; pass++) portEmbedPass(rgba, width, height, bits, mask)
 }
 function portEmbedPass (rgba, width, height, bits, mask) {
   const Y = new Float32Array(width * height)
@@ -130,26 +132,26 @@ function portEmbedPass (rgba, width, height, bits, mask) {
   for (let by = 0; by < blocksY; by++) {
     for (let bx = 0; bx < blocksX; bx++) {
       const blockIndex = by * blocksX + bx
-      if (mask && !mask[blockIndex]) continue
+      const mode = mask[blockIndex]
+      if (!mode) continue
       for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
       const dct = dct2d(block)
       const targetBit = bits[blockIndex % bitLength]
       const coeffVal = dct[2 * 8 + 1]
-      let quantum = Math.round(coeffVal / Q)
+      const q = mode === 2 ? Q_SMOOTH : Q
+      let quantum = Math.round(coeffVal / q)
       const isEven = ((quantum % 2) + 2) % 2 === 0
       if (isEven !== (targetBit === 0)) {
-        quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1
+        quantum += (coeffVal / q - quantum) >= 0 ? 1 : -1
       }
-      const level = quantum * Q
-      let bMean = 0
-      for (let i = 0; i < 64; i++) bMean += block[i]
-      bMean /= 64
-      let bVar = 0
-      for (let i = 0; i < 64; i++) { const d = block[i] - bMean; bVar += d * d }
-      const margin = Math.sqrt(bVar / 64) < SMOOTH_STDDEV ? QIM_MARGIN_SMOOTH : QIM_MARGIN
-      const band = (Q - margin) / 2
-      const off = Math.max(-band, Math.min(band, coeffVal - level))
-      dct[2 * 8 + 1] = level + off
+      const level = quantum * q
+      if (mode === 2) {
+        dct[2 * 8 + 1] = level
+      } else {
+        const band = (Q - QIM_MARGIN) / 2
+        const off = Math.max(-band, Math.min(band, coeffVal - level))
+        dct[2 * 8 + 1] = level + off
+      }
       const reconstructed = idct2d(dct)
       for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) Y[((by * 8 + x) * width) + (bx * 8 + y)] = reconstructed[x * 8 + y]
     }

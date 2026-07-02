@@ -162,19 +162,22 @@ is **not** Fourier–Mellin; it is a protocol constant:
   derived from the decoded (post-resync) grid**, never from raw per-block content
   that an attack can shift. When in doubt, use a **fixed step** - it outperformed
   both adaptive masking and spread-spectrum in testing.
-- **Textured-only placement (visibility fix, measured 2026-07-02).** When an
-  image has enough textured blocks to carry the stream with solid redundancy,
-  smooth blocks (skies, gradients) are left **byte-untouched** and the payload
-  rides only under texture, where the QIM ripple is visually masked. This is a
-  PLACEMENT rule, not an adaptive step (the §4.4 trap concerns step size):
-  bit assignment is positional (blockIndex mod bitLength), so an embedder/
-  decoder disagreement over any block costs one vote, never a desync, and the
-  decoder re-derives inclusion from the delivered pixels with a guard band
-  (embed at block std-dev >= 8, decode at >= 3), trying textured-only first and
-  full coverage second, each gated by the sync tag + RS + CRC. Low-texture
-  images fall back to full coverage. Measured on a real 2 MP property photo:
-  smooth-sky region 0 changed bytes, ~48 dB overall, JPEG q75/q30 and WebP q90
-  still recovered.
+- **Dual-band placement (universal visibility fix, measured 2026-07-02).**
+  Blocks are classified by texture (luminance std-dev, threshold 8). On
+  texture-rich images, smooth blocks (skies, gradients) are left
+  **byte-untouched** and the payload rides only under texture at full strength
+  (Q=26, margin-band). On low-texture images, smooth blocks carry a
+  **half-strength band** (exact snap on Q=13 levels - visually clean amplitude)
+  while any textured blocks keep full strength, so coverage is universal with
+  no visible grain on any content class. This is a PLACEMENT/STRENGTH-CLASS
+  rule with a fixed, protocol-known pair of quantizers - not a per-block
+  adaptive step (the trap below): bit assignment is positional (blockIndex mod
+  bitLength), so classifier disagreement over any block costs one vote, never
+  a desync; the decoder re-derives the classification from delivered pixels
+  and runs three attempts (textured-only, dual-band, legacy full), each gated
+  by the sync tag + RS + CRC. Measured across four content classes (real
+  photos, sky gradient, white flyer, banner): 46.7-49.0 dB PSNR and JPEG
+  q85..q30 plus WebP q90 all recovered, on every class.
 - The validated recipe is: **fixed-step QIM on a low-mid coefficient + soft-
   decision voting + Reed-Solomon ECC + a CRC that rejects miscorrections** so a
   bad read fails loudly instead of returning a wrong value. (See §4.6.)

@@ -13,13 +13,6 @@ const Q = 26                // QIM step size
 // visible distortion. Ratified by the sweep in scripts/compare-embedders.js
 // against the pinned C-T1 floors. Env override exists ONLY for that sweep.
 const QIM_MARGIN = Number(process.env.SIML_QIM_MARGIN ?? 18)
-// Smooth blocks (skies, gradients) show the QIM ripple most, and the eye is
-// most sensitive there, so they embed with a reduced margin. EMBED-SIDE ONLY:
-// the decoder is pure distance voting and never re-derives this mask, so the
-// §4.4 desync trap (embedder/decoder disagreeing on a content-derived step)
-// does not apply - the only cost is weaker votes from smooth blocks.
-const QIM_MARGIN_SMOOTH = Number(process.env.SIML_QIM_MARGIN_SMOOTH ?? 12)
-const SMOOTH_STDDEV = 3 // block luminance std-dev below this = smooth
 // Textured-only placement: embed marks only blocks with std-dev >= EMBED
 // threshold (smooth skies stay byte-untouched); the decoder includes blocks
 // with std-dev >= DECODE threshold - a guard band, since attacks mostly
@@ -27,7 +20,14 @@ const SMOOTH_STDDEV = 3 // block luminance std-dev below this = smooth
 // positional), so a borderline block costs one vote, never a desync.
 const TEXTURE_EMBED_STDDEV = 8
 const TEXTURE_DECODE_STDDEV = 3
-const MIN_TEXTURED_REPS = 8 // fall back to full coverage below this redundancy
+const MIN_TEXTURED_REPS = 8 // below this redundancy, switch to dual-band coverage
+// Dual-band fallback for low-texture images: smooth blocks embed at half
+// quantizer strength (exact snap on Q_SMOOTH-spaced levels - the visually
+// clean amplitude, measured JPEG floor ~q40, comfortably covering
+// messaging-grade q70+), textured blocks keep the full Q=26 signal. The
+// decoder classifies blocks the same way (guard-banded) and votes with the
+// matching quantizer per block; every decode is still sync+RS+CRC gated.
+const Q_SMOOTH = 13
 const RS_NSYM = 4           // Reed-Solomon parity symbols (corrects up to 2 byte errors)
 const T1_CAPACITY = 16      // payload bytes the watermark carries (spec §4.4/§4.5.1)
 
@@ -181,6 +181,11 @@ function embedWatermark(rgba, width, height, payloadBytes) {
   // order, so an embedder/decoder disagreement about any single block costs one
   // vote, not a desync - and the sync tag + CRC still gate every decode.
   // Low-texture images fall back to full coverage (the classic recipe).
+  // Block modes: 0 = skip (byte-untouched), 1 = full-band Q, 2 = smooth-band
+  // Q_SMOOTH. Texture-rich images: textured blocks full-band, smooth skipped
+  // (skies byte-untouched). Low-texture images: dual-band - textured blocks
+  // full-band, smooth blocks half-strength (visually clean, messaging-grade
+  // survival) so coverage is universal without visible grain.
   const blocksX = Math.floor(width / 8)
   const blocksY = Math.floor(height / 8)
   const Y0 = rgbToY(rgba, width, height)
@@ -193,7 +198,11 @@ function embedWatermark(rgba, width, height, payloadBytes) {
         eligible++
       }
   const selective = eligible >= MIN_TEXTURED_REPS * bits.length
-  const placement = selective ? 'textured' : 'full'
+  if (!selective) {
+    // dual-band: every unmarked block becomes a smooth-band carrier
+    for (let i = 0; i < mask.length; i++) if (!mask[i]) mask[i] = 2
+  }
+  const placement = selective ? 'textured' : 'dual-band'
 
   // Multiple passes fight saturation clipping: applying the luminance delta to
   // near-white/near-black pixels clips, which drags the (2,1) coefficient off
@@ -202,7 +211,7 @@ function embedWatermark(rgba, width, height, payloadBytes) {
   // all passes mark the same blocks.
   const EMBED_PASSES = 3
   for (let pass = 0; pass < EMBED_PASSES; pass++) {
-    embedPass(rgba, width, height, bits, selective ? mask : null)
+    embedPass(rgba, width, height, bits, mask)
   }
   return { placement, markedBlocks: selective ? eligible : blocksX * blocksY, totalBlocks: blocksX * blocksY }
 }
@@ -217,7 +226,8 @@ function embedPass(rgba, width, height, bits, mask) {
   for (let by = 0; by < blocksY; by++) {
     for (let bx = 0; bx < blocksX; bx++) {
       const blockIndex = by * blocksX + bx
-      if (mask && !mask[blockIndex]) continue // smooth block: byte-untouched
+      const mode = mask[blockIndex]
+      if (!mode) continue // skipped block: byte-untouched
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
           block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
@@ -226,25 +236,24 @@ function embedPass(rgba, width, height, bits, mask) {
       // Positional bit assignment - see embedWatermark.
       const targetBit = bits[blockIndex % bitLength]
       const coeffVal = dct[2 * 8 + 1]
-      // Margin-band QIM on Q-spaced parity levels: move the coefficient only as
-      // far as a guaranteed decode margin requires (less grain than full snap).
-      // In full-coverage mode, smooth blocks embed at the reduced margin.
-      let quantum = Math.round(coeffVal / Q)
+      // Full band: margin-band QIM on Q-spaced levels (guaranteed margin).
+      // Smooth band: exact snap on Q_SMOOTH-spaced levels (half amplitude,
+      // visually clean; measured floor ~q40, covers messaging-grade q70+).
+      const q = mode === 2 ? Q_SMOOTH : Q
+      let quantum = Math.round(coeffVal / q)
       const isEven = (quantum % 2 + 2) % 2 === 0  // guard against negative mod
       if (isEven !== (targetBit === 0)) {
         // nearest correct-parity level, toward the residual
-        quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1
+        quantum += (coeffVal / q - quantum) >= 0 ? 1 : -1
       }
-      const level = quantum * Q
-      let mean = 0
-      for (let i = 0; i < 64; i++) mean += block[i]
-      mean /= 64
-      let varSum = 0
-      for (let i = 0; i < 64; i++) { const d = block[i] - mean; varSum += d * d }
-      const margin = Math.sqrt(varSum / 64) < SMOOTH_STDDEV ? QIM_MARGIN_SMOOTH : QIM_MARGIN
-      const band = (Q - margin) / 2
-      const off = Math.max(-band, Math.min(band, coeffVal - level))
-      dct[2 * 8 + 1] = level + off
+      const level = quantum * q
+      if (mode === 2) {
+        dct[2 * 8 + 1] = level
+      } else {
+        const band = (Q - QIM_MARGIN) / 2
+        const off = Math.max(-band, Math.min(band, coeffVal - level))
+        dct[2 * 8 + 1] = level + off
+      }
       const reconstructed = idct2d(dct)
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
@@ -276,21 +285,30 @@ function extractWatermark(rgba, width, height, payloadByteLength) {
   const rsByteLen = payloadByteLength + 2 + RS_NSYM
   const bitLength = 16 + rsByteLen * 8          // sync + RS-coded bits
 
-  // Two attempts, each fully gated by sync + RS + CRC (the fail-loud oracle):
-  // 1. Textured blocks only (std-dev >= guard threshold). Correct for
-  //    textured-placement embeds, and also valid for full-coverage embeds
-  //    (a subset of consistent votes still decodes).
-  // 2. All blocks - rescues full-coverage embeds on low-texture images where
-  //    attempt 1 had too few votes.
-  return decodeAttempt(true) || decodeAttempt(false)
+  // Three attempts, each fully gated by sync + RS + CRC (the fail-loud oracle):
+  // 1. 'textured' - textured blocks only at Q. Correct for textured-placement
+  //    embeds; also a valid consistent subset for full-coverage embeds.
+  // 2. 'dual'     - per-block quantizer by the same texture classifier the
+  //    embedder used (textured -> Q, smooth -> Q_SMOOTH). Correct for
+  //    dual-band embeds; misclassified borderline blocks cost votes, never
+  //    a desync (positional bit assignment).
+  // 3. 'full'     - all blocks at Q (legacy full-coverage embeds).
+  return decodeAttempt('textured') || decodeAttempt('dual') || decodeAttempt('full')
 
-  function decodeAttempt(texturedOnly) {
+  function decodeAttempt(strategy) {
     const softVotes = new Float64Array(bitLength) // + = bit-0 evidence, − = bit-1
     const block = new Float32Array(64)
 
     for (let by = 0; by < blocksY; by++) {
       for (let bx = 0; bx < blocksX; bx++) {
-        if (texturedOnly && blockStddev(Y, width, bx, by) < TEXTURE_DECODE_STDDEV) continue
+        let q = Q
+        if (strategy === 'textured') {
+          if (blockStddev(Y, width, bx, by) < TEXTURE_DECODE_STDDEV) continue
+        } else if (strategy === 'dual') {
+          // classify like the embedder (same threshold); borderline flips
+          // contribute noise votes that the redundancy absorbs
+          q = blockStddev(Y, width, bx, by) >= TEXTURE_EMBED_STDDEV ? Q : Q_SMOOTH
+        }
         for (let x = 0; x < 8; x++)
           for (let y = 0; y < 8; y++)
             block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
@@ -298,10 +316,9 @@ function extractWatermark(rgba, width, height, payloadByteLength) {
         const dct = dct2d(block)
         const c = dct[2 * 8 + 1]
 
-        // True soft-decision: distance to nearest even vs odd Q-spaced level
-        // (levels every Q, matching the embedder and the Python reference).
-        const nearEven = 2 * Math.round(c / (2 * Q)) * Q               // nearest even-parity level
-        const nearOdd  = (2 * Math.round((c - Q) / (2 * Q)) + 1) * Q   // nearest odd-parity level
+        // True soft-decision: distance to nearest even vs odd q-spaced level.
+        const nearEven = 2 * Math.round(c / (2 * q)) * q               // nearest even-parity level
+        const nearOdd  = (2 * Math.round((c - q) / (2 * q)) + 1) * q   // nearest odd-parity level
         const dE = Math.abs(c - nearEven)
         const dO = Math.abs(c - nearOdd)
         // Positional bit assignment - MUST match the embedder.

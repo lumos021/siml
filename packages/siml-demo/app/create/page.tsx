@@ -52,11 +52,10 @@ const SYNC_TAG = 0xD4B3;
 const CANONICAL_WIDTH = 1024;
 const Q = 26;
 const QIM_MARGIN = 18; // guaranteed decode margin; MUST match siml-writer
-const QIM_MARGIN_SMOOTH = 12; // reduced margin in smooth blocks (less visible grain)
-const SMOOTH_STDDEV = 3; // block luminance std-dev below this = smooth
-// Textured-only placement thresholds - MUST match siml-writer/src/watermark.js
+// Placement thresholds and dual-band smooth quantizer - MUST match siml-writer
 const TEXTURE_EMBED_STDDEV = 8;
 const MIN_TEXTURED_REPS = 8;
+const Q_SMOOTH = 13;
 const RS_NSYM = 4;  // Reed-Solomon parity symbols (matches writer/rs.js)
 
 // ─── Inline GF(2˸8) RS encoder (mirrors writer/rs.js) ────────────────────────────
@@ -187,15 +186,19 @@ function embedWatermarkClient(rgba: Uint8ClampedArray, width: number, height: nu
     }
   }
   const selective = eligible >= MIN_TEXTURED_REPS * bits.length;
+  if (!selective) {
+    // dual-band: every unmarked block becomes a half-strength smooth carrier
+    for (let i = 0; i < mask.length; i++) if (!mask[i]) mask[i] = 2;
+  }
 
   // Multiple passes fight saturation clipping; the mask is computed once from
   // the original pixels and reused so all passes mark the same blocks.
   const EMBED_PASSES = 3;
-  for (let pass = 0; pass < EMBED_PASSES; pass++) embedPassClient(rgba, width, height, bits, selective ? mask : null);
-  return { placement: selective ? "textured" : "full", markedBlocks: selective ? eligible : blocksX * blocksY, totalBlocks: blocksX * blocksY };
+  for (let pass = 0; pass < EMBED_PASSES; pass++) embedPassClient(rgba, width, height, bits, mask);
+  return { placement: selective ? "textured" : "dual-band", markedBlocks: selective ? eligible : blocksX * blocksY, totalBlocks: blocksX * blocksY };
 }
 
-function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number, bits: number[], mask: Uint8Array | null) {
+function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number, bits: number[], mask: Uint8Array) {
   const Y = new Float32Array(width * height);
   for (let i = 0; i < width * height; i++)
     Y[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
@@ -208,7 +211,8 @@ function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number,
   for (let by = 0; by < blocksY; by++) {
     for (let bx = 0; bx < blocksX; bx++) {
       const blockIndex = by * blocksX + bx;
-      if (mask && !mask[blockIndex]) continue; // smooth block: byte-untouched
+      const mode = mask[blockIndex];
+      if (!mode) continue; // skipped block: byte-untouched
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
           block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)];
@@ -216,27 +220,23 @@ function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number,
       const dct = dct2d(block);
       const targetBit = bits[blockIndex % bitLength]; // positional assignment
       const coeffVal = dct[2 * 8 + 1];
-      // Margin-band QIM on Q-spaced parity levels: guarantee a decode margin of
-      // QIM_MARGIN while moving the coefficient no farther than required (less
-      // grain than full snapping). MUST match siml-writer/src/watermark.js.
-      let quantum = Math.round(coeffVal / Q);
+      // Full band: margin-band QIM on Q-spaced levels. Smooth band: exact snap
+      // on Q_SMOOTH levels (half amplitude, visually clean, messaging-grade
+      // survival). MUST match siml-writer/src/watermark.js.
+      const q = mode === 2 ? Q_SMOOTH : Q;
+      let quantum = Math.round(coeffVal / q);
       const isEven = ((quantum % 2) + 2) % 2 === 0;
       if (isEven !== (targetBit === 0)) {
-        quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1;
+        quantum += (coeffVal / q - quantum) >= 0 ? 1 : -1;
       }
-      const level = quantum * Q;
-      // Smooth blocks (skies, gradients) show the ripple most, so they embed at
-      // the reduced margin. Embed-side only: the decoder never re-derives this
-      // mask, so there is no desync risk. MUST match siml-writer.
-      let bMean = 0;
-      for (let i = 0; i < 64; i++) bMean += block[i];
-      bMean /= 64;
-      let bVar = 0;
-      for (let i = 0; i < 64; i++) { const d = block[i] - bMean; bVar += d * d; }
-      const margin = Math.sqrt(bVar / 64) < SMOOTH_STDDEV ? QIM_MARGIN_SMOOTH : QIM_MARGIN;
-      const band = (Q - margin) / 2;
-      const off = Math.max(-band, Math.min(band, coeffVal - level));
-      dct[2 * 8 + 1] = level + off;
+      const level = quantum * q;
+      if (mode === 2) {
+        dct[2 * 8 + 1] = level;
+      } else {
+        const band = (Q - QIM_MARGIN) / 2;
+        const off = Math.max(-band, Math.min(band, coeffVal - level));
+        dct[2 * 8 + 1] = level + off;
+      }
       const reconstructed = idct2d(dct);
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
@@ -972,7 +972,7 @@ export default function CreatePage() {
       const placementNote = placementInfo
         ? (placementInfo.placement === "textured"
           ? `, textured placement: smooth areas byte-untouched (${placementInfo.markedBlocks}/${placementInfo.totalBlocks} blocks used)`
-          : ", full coverage: low-texture image, a faint texture may be visible in smooth areas")
+          : ", dual-band: low-texture image, smooth areas carry a half-strength (visually clean) signal")
         : "";
       const t1Report = t1Mode ? `+ T1 (${t1Mode}${placementNote})` : (writeT1 ? "(T1 SKIPPED: no eligible field)" : "");
       showToast(`Exported. Written tiers: T0 ${t1Report} ${writeT2 ? "+ T2" : ""}`);

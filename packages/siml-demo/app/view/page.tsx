@@ -153,6 +153,8 @@ function rgbToY(rgba: Uint8ClampedArray, width: number, height: number): Float32
 }
 
 const TEXTURE_DECODE_STDDEV = 3; // guard-band include threshold; MUST match siml-writer
+const TEXTURE_EMBED_STDDEV = 8;  // dual-band classifier threshold; MUST match siml-writer
+const Q_SMOOTH = 13;             // smooth-band quantizer; MUST match siml-writer
 
 function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: number, payloadByteLength = 16): Uint8Array | null {
   try {
@@ -165,10 +167,10 @@ function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: 
     const rsByteLen = payloadByteLength + 2 + RS_NSYM;
     const bitLength = 16 + rsByteLen * 8;
 
-    // Two attempts, each gated by sync + RS + CRC (fail-loud): textured blocks
-    // first (correct for textured-placement embeds, valid subset for full
-    // embeds), then all blocks. MUST match siml-writer/src/watermark.js.
-    const attempt = (texturedOnly: boolean): Uint8Array | null => {
+    // Three attempts, each gated by sync + RS + CRC (fail-loud): textured-only,
+    // then dual-band (per-block quantizer by the embedder's classifier), then
+    // legacy full coverage. MUST match siml-writer/src/watermark.js.
+    const attempt = (strategy: "textured" | "dual" | "full"): Uint8Array | null => {
       const softVotes = new Float64Array(bitLength);
       const block = new Float32Array(64);
 
@@ -178,20 +180,26 @@ function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: 
             for (let y = 0; y < 8; y++)
               block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)];
 
-          if (texturedOnly) {
+          let q = Q;
+          if (strategy !== "full") {
             let m = 0;
             for (let i = 0; i < 64; i++) m += block[i];
             m /= 64;
             let v = 0;
             for (let i = 0; i < 64; i++) { const d = block[i] - m; v += d * d; }
-            if (Math.sqrt(v / 64) < TEXTURE_DECODE_STDDEV) continue;
+            const sd = Math.sqrt(v / 64);
+            if (strategy === "textured") {
+              if (sd < TEXTURE_DECODE_STDDEV) continue;
+            } else {
+              q = sd >= TEXTURE_EMBED_STDDEV ? Q : Q_SMOOTH;
+            }
           }
 
           const dct = dct2d(block);
           const c = dct[2 * 8 + 1];
-          // QIM levels every Q, bit in the level's parity (MUST match the writer).
-          const nearEven = 2 * Math.round(c / (2 * Q)) * Q;
-          const nearOdd = (2 * Math.round((c - Q) / (2 * Q)) + 1) * Q;
+          // QIM levels every q, bit in the level's parity (MUST match the writer).
+          const nearEven = 2 * Math.round(c / (2 * q)) * q;
+          const nearOdd = (2 * Math.round((c - q) / (2 * q)) + 1) * q;
           // Positional bit assignment - MUST match the embedder.
           softVotes[(by * blocksX + bx) % bitLength] += (Math.abs(c - nearOdd) - Math.abs(c - nearEven));
         }
@@ -223,7 +231,7 @@ function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: 
       return new Uint8Array(payload);
     };
 
-    return attempt(true) || attempt(false);
+    return attempt("textured") || attempt("dual") || attempt("full");
   } catch { return null; }
 }
 
