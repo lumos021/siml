@@ -152,6 +152,8 @@ function rgbToY(rgba: Uint8ClampedArray, width: number, height: number): Float32
   return Y;
 }
 
+const TEXTURE_DECODE_STDDEV = 3; // guard-band include threshold; MUST match siml-writer
+
 function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: number, payloadByteLength = 16): Uint8Array | null {
   try {
     const Y = new Float32Array(width * height);
@@ -162,50 +164,66 @@ function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: 
     const blocksY = Math.floor(height / 8);
     const rsByteLen = payloadByteLength + 2 + RS_NSYM;
     const bitLength = 16 + rsByteLen * 8;
-    const softVotes = new Float64Array(bitLength);
-    const block = new Float32Array(64);
-    let bitIndex = 0;
 
-    for (let by = 0; by < blocksY; by++) {
-      for (let bx = 0; bx < blocksX; bx++) {
-        for (let x = 0; x < 8; x++)
-          for (let y = 0; y < 8; y++)
-            block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)];
+    // Two attempts, each gated by sync + RS + CRC (fail-loud): textured blocks
+    // first (correct for textured-placement embeds, valid subset for full
+    // embeds), then all blocks. MUST match siml-writer/src/watermark.js.
+    const attempt = (texturedOnly: boolean): Uint8Array | null => {
+      const softVotes = new Float64Array(bitLength);
+      const block = new Float32Array(64);
 
-        const dct = dct2d(block);
-        const c = dct[2 * 8 + 1];
-        // QIM levels every Q, bit in the level's parity (MUST match the writer).
-        const nearEven = 2 * Math.round(c / (2 * Q)) * Q;
-        const nearOdd = (2 * Math.round((c - Q) / (2 * Q)) + 1) * Q;
-        softVotes[bitIndex % bitLength] += (Math.abs(c - nearOdd) - Math.abs(c - nearEven));
-        bitIndex++;
+      for (let by = 0; by < blocksY; by++) {
+        for (let bx = 0; bx < blocksX; bx++) {
+          for (let x = 0; x < 8; x++)
+            for (let y = 0; y < 8; y++)
+              block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)];
+
+          if (texturedOnly) {
+            let m = 0;
+            for (let i = 0; i < 64; i++) m += block[i];
+            m /= 64;
+            let v = 0;
+            for (let i = 0; i < 64; i++) { const d = block[i] - m; v += d * d; }
+            if (Math.sqrt(v / 64) < TEXTURE_DECODE_STDDEV) continue;
+          }
+
+          const dct = dct2d(block);
+          const c = dct[2 * 8 + 1];
+          // QIM levels every Q, bit in the level's parity (MUST match the writer).
+          const nearEven = 2 * Math.round(c / (2 * Q)) * Q;
+          const nearOdd = (2 * Math.round((c - Q) / (2 * Q)) + 1) * Q;
+          // Positional bit assignment - MUST match the embedder.
+          softVotes[(by * blocksX + bx) % bitLength] += (Math.abs(c - nearOdd) - Math.abs(c - nearEven));
+        }
       }
-    }
 
-    const bits = Array.from(softVotes, (v: number) => v < 0 ? 1 : 0);
-    let sync = 0;
-    for (let i = 0; i < 16; i++) sync = (sync << 1) | bits[i];
-    if (sync !== SYNC_TAG) return null;
+      const bits = Array.from(softVotes, (v: number) => v < 0 ? 1 : 0);
+      let sync = 0;
+      for (let i = 0; i < 16; i++) sync = (sync << 1) | bits[i];
+      if (sync !== SYNC_TAG) return null;
 
-    const rsCoded: number[] = [];
-    for (let i = 0; i < rsByteLen; i++) {
-      let v = 0; for (let b = 0; b < 8; b++) v = (v << 1) | bits[16 + i * 8 + b];
-      rsCoded.push(v);
-    }
+      const rsCoded: number[] = [];
+      for (let i = 0; i < rsByteLen; i++) {
+        let v = 0; for (let b = 0; b < 8; b++) v = (v << 1) | bits[16 + i * 8 + b];
+        rsCoded.push(v);
+      }
 
-    const decoded = vRsDecode(rsCoded, RS_NSYM);
-    if (!decoded) return null;
+      const decoded = vRsDecode(rsCoded, RS_NSYM);
+      if (!decoded) return null;
 
-    const payload = decoded.slice(0, payloadByteLength);
-    const extractedCRC = (decoded[payloadByteLength] << 8) | decoded[payloadByteLength + 1];
-    let crc = 0xFFFF;
-    for (const byte of payload) {
-      crc ^= byte << 8;
-      for (let bb = 0; bb < 8; bb++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
-    }
-    if (extractedCRC !== (crc & 0xFFFF)) return null;
+      const payload = decoded.slice(0, payloadByteLength);
+      const extractedCRC = (decoded[payloadByteLength] << 8) | decoded[payloadByteLength + 1];
+      let crc = 0xFFFF;
+      for (const byte of payload) {
+        crc ^= byte << 8;
+        for (let bb = 0; bb < 8; bb++) crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+      }
+      if (extractedCRC !== (crc & 0xFFFF)) return null;
 
-    return new Uint8Array(payload);
+      return new Uint8Array(payload);
+    };
+
+    return attempt(true) || attempt(false);
   } catch { return null; }
 }
 

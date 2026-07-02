@@ -162,6 +162,19 @@ is **not** Fourier–Mellin; it is a protocol constant:
   derived from the decoded (post-resync) grid**, never from raw per-block content
   that an attack can shift. When in doubt, use a **fixed step** - it outperformed
   both adaptive masking and spread-spectrum in testing.
+- **Textured-only placement (visibility fix, measured 2026-07-02).** When an
+  image has enough textured blocks to carry the stream with solid redundancy,
+  smooth blocks (skies, gradients) are left **byte-untouched** and the payload
+  rides only under texture, where the QIM ripple is visually masked. This is a
+  PLACEMENT rule, not an adaptive step (the §4.4 trap concerns step size):
+  bit assignment is positional (blockIndex mod bitLength), so an embedder/
+  decoder disagreement over any block costs one vote, never a desync, and the
+  decoder re-derives inclusion from the delivered pixels with a guard band
+  (embed at block std-dev >= 8, decode at >= 3), trying textured-only first and
+  full coverage second, each gated by the sync tag + RS + CRC. Low-texture
+  images fall back to full coverage. Measured on a real 2 MP property photo:
+  smooth-sky region 0 changed bytes, ~48 dB overall, JPEG q75/q30 and WebP q90
+  still recovered.
 - The validated recipe is: **fixed-step QIM on a low-mid coefficient + soft-
   decision voting + Reed-Solomon ECC + a CRC that rejects miscorrections** so a
   bad read fails loudly instead of returning a wrong value. (See §4.6.)

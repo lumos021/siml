@@ -46,6 +46,8 @@ const Q = 26
 const QIM_MARGIN = 18 // MUST match siml-writer
 const QIM_MARGIN_SMOOTH = 12
 const SMOOTH_STDDEV = 3
+const TEXTURE_EMBED_STDDEV = 8
+const MIN_TEXTURED_REPS = 8
 const RS_NSYM = 4
 const cosTable = new Float32Array(8 * 8)
 for (let u = 0; u < 8; u++) for (let x = 0; x < 8; x++) cosTable[u * 8 + x] = Math.cos(((2 * x + 1) * u * Math.PI) / 16)
@@ -98,22 +100,40 @@ function portEmbed (rgba, width, height, text) {
   const bits = []
   for (let i = 0; i < 16; i++) bits.push((SYNC_TAG >> (15 - i)) & 1)
   for (const byte of rsCoded) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1)
+  const blocksX = Math.floor(width / 8)
+  const blocksY = Math.floor(height / 8)
+  const Y0 = new Float32Array(width * height)
+  for (let i = 0; i < width * height; i++) Y0[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2]
+  const mask = new Uint8Array(blocksX * blocksY)
+  let eligible = 0
+  for (let by = 0; by < blocksY; by++) {
+    for (let bx = 0; bx < blocksX; bx++) {
+      let m = 0
+      for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) m += Y0[((by * 8 + x) * width) + (bx * 8 + y)]
+      m /= 64
+      let v = 0
+      for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) { const d = Y0[((by * 8 + x) * width) + (bx * 8 + y)] - m; v += d * d }
+      if (Math.sqrt(v / 64) >= TEXTURE_EMBED_STDDEV) { mask[by * blocksX + bx] = 1; eligible++ }
+    }
+  }
+  const selective = eligible >= MIN_TEXTURED_REPS * bits.length
   const EMBED_PASSES = 3
-  for (let pass = 0; pass < EMBED_PASSES; pass++) portEmbedPass(rgba, width, height, bits)
+  for (let pass = 0; pass < EMBED_PASSES; pass++) portEmbedPass(rgba, width, height, bits, selective ? mask : null)
 }
-function portEmbedPass (rgba, width, height, bits) {
+function portEmbedPass (rgba, width, height, bits, mask) {
   const Y = new Float32Array(width * height)
   for (let i = 0; i < width * height; i++) Y[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2]
   const blocksX = Math.floor(width / 8)
   const blocksY = Math.floor(height / 8)
   const bitLength = bits.length
-  let bitIndex = 0
   const block = new Float32Array(64)
   for (let by = 0; by < blocksY; by++) {
     for (let bx = 0; bx < blocksX; bx++) {
+      const blockIndex = by * blocksX + bx
+      if (mask && !mask[blockIndex]) continue
       for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
       const dct = dct2d(block)
-      const targetBit = bits[bitIndex % bitLength]
+      const targetBit = bits[blockIndex % bitLength]
       const coeffVal = dct[2 * 8 + 1]
       let quantum = Math.round(coeffVal / Q)
       const isEven = ((quantum % 2) + 2) % 2 === 0
@@ -132,7 +152,6 @@ function portEmbedPass (rgba, width, height, bits) {
       dct[2 * 8 + 1] = level + off
       const reconstructed = idct2d(dct)
       for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) Y[((by * 8 + x) * width) + (bx * 8 + y)] = reconstructed[x * 8 + y]
-      bitIndex++
     }
   }
   for (let i = 0; i < width * height; i++) {

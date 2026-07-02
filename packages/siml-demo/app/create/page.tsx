@@ -54,6 +54,9 @@ const Q = 26;
 const QIM_MARGIN = 18; // guaranteed decode margin; MUST match siml-writer
 const QIM_MARGIN_SMOOTH = 12; // reduced margin in smooth blocks (less visible grain)
 const SMOOTH_STDDEV = 3; // block luminance std-dev below this = smooth
+// Textured-only placement thresholds - MUST match siml-writer/src/watermark.js
+const TEXTURE_EMBED_STDDEV = 8;
+const MIN_TEXTURED_REPS = 8;
 const RS_NSYM = 4;  // Reed-Solomon parity symbols (matches writer/rs.js)
 
 // ─── Inline GF(2˸8) RS encoder (mirrors writer/rs.js) ────────────────────────────
@@ -162,15 +165,37 @@ function embedWatermarkClient(rgba: Uint8ClampedArray, width: number, height: nu
   for (let i = 0; i < 16; i++) bits.push((SYNC_TAG >> (15 - i)) & 1);
   for (const byte of rsCoded) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1);
 
-  // Multiple passes fight saturation clipping on near-white/near-black content:
-  // clamped pixels drag the coefficient off its level; re-embedding on the
-  // clamped result re-pushes those blocks. Decoder-independent, so no §4.4
-  // desync trap. MUST match siml-writer/src/watermark.js.
+  // TEXTURED-ONLY PLACEMENT (MUST match siml-writer): smooth blocks (skies,
+  // gradients) stay byte-untouched when the image has enough textured blocks
+  // to carry the stream; bit assignment is positional so block selection can
+  // never desync the stream. Low-texture images fall back to full coverage.
+  const blocksX = Math.floor(width / 8);
+  const blocksY = Math.floor(height / 8);
+  const Y0 = new Float32Array(width * height);
+  for (let i = 0; i < width * height; i++)
+    Y0[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
+  const mask = new Uint8Array(blocksX * blocksY);
+  let eligible = 0;
+  for (let by = 0; by < blocksY; by++) {
+    for (let bx = 0; bx < blocksX; bx++) {
+      let m = 0;
+      for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) m += Y0[((by * 8 + x) * width) + (bx * 8 + y)];
+      m /= 64;
+      let v = 0;
+      for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) { const d = Y0[((by * 8 + x) * width) + (bx * 8 + y)] - m; v += d * d; }
+      if (Math.sqrt(v / 64) >= TEXTURE_EMBED_STDDEV) { mask[by * blocksX + bx] = 1; eligible++; }
+    }
+  }
+  const selective = eligible >= MIN_TEXTURED_REPS * bits.length;
+
+  // Multiple passes fight saturation clipping; the mask is computed once from
+  // the original pixels and reused so all passes mark the same blocks.
   const EMBED_PASSES = 3;
-  for (let pass = 0; pass < EMBED_PASSES; pass++) embedPassClient(rgba, width, height, bits);
+  for (let pass = 0; pass < EMBED_PASSES; pass++) embedPassClient(rgba, width, height, bits, selective ? mask : null);
+  return { placement: selective ? "textured" : "full", markedBlocks: selective ? eligible : blocksX * blocksY, totalBlocks: blocksX * blocksY };
 }
 
-function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number, bits: number[]) {
+function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number, bits: number[], mask: Uint8Array | null) {
   const Y = new Float32Array(width * height);
   for (let i = 0; i < width * height; i++)
     Y[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
@@ -178,17 +203,18 @@ function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number,
   const blocksX = Math.floor(width / 8);
   const blocksY = Math.floor(height / 8);
   const bitLength = bits.length;
-  let bitIndex = 0;
   const block = new Float32Array(64);
 
   for (let by = 0; by < blocksY; by++) {
     for (let bx = 0; bx < blocksX; bx++) {
+      const blockIndex = by * blocksX + bx;
+      if (mask && !mask[blockIndex]) continue; // smooth block: byte-untouched
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
           block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)];
 
       const dct = dct2d(block);
-      const targetBit = bits[bitIndex % bitLength];
+      const targetBit = bits[blockIndex % bitLength]; // positional assignment
       const coeffVal = dct[2 * 8 + 1];
       // Margin-band QIM on Q-spaced parity levels: guarantee a decode margin of
       // QIM_MARGIN while moving the coefficient no farther than required (less
@@ -215,7 +241,6 @@ function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number,
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
           Y[((by * 8 + x) * width) + (bx * 8 + y)] = reconstructed[x * 8 + y];
-      bitIndex++;
     }
   }
 
@@ -793,6 +818,7 @@ export default function CreatePage() {
       // instead of the field itself; the viewer recovers the exact text and
       // its true position via OCR + oracle search.
       let t1Mode: "direct" | "id" | "verify" | null = null;
+      let placementInfo: { placement: string; markedBlocks: number; totalBlocks: number } | null = null;
       if (writeT1) {
         // Verify mode checksums a field OCR can actually re-read: an actionable
         // typed value (phone preferred). A decorative title marked primary is
@@ -812,13 +838,13 @@ export default function CreatePage() {
           p[0] = 0x56; p[1] = 0x31; // "V1"
           p[2] = (crc >>> 24) & 0xFF; p[3] = (crc >>> 16) & 0xFF;
           p[4] = (crc >>> 8) & 0xFF; p[5] = crc & 0xFF;
-          embedWatermarkClient(imgData.data, 1024, 512, p);
+          placementInfo = embedWatermarkClient(imgData.data, 1024, 512, p);
           ctx.putImageData(imgData, 0, 0);
           t1Mode = "verify";
         } else if (sel) {
           const payloadBytes = new Uint8Array(16); // NUL-padded, never truncated
           payloadBytes.set(new TextEncoder().encode(sel.value));
-          embedWatermarkClient(imgData.data, 1024, 512, payloadBytes);
+          placementInfo = embedWatermarkClient(imgData.data, 1024, 512, payloadBytes);
           ctx.putImageData(imgData, 0, 0);
           t1Mode = sel.mode;
         } else {
@@ -943,7 +969,12 @@ export default function CreatePage() {
 
       // Report what was ACTUALLY written, not what was requested: T1 can be
       // legitimately skipped (no eligible field), and saying "T1" then would lie.
-      const t1Report = t1Mode ? `+ T1 (${t1Mode})` : (writeT1 ? "(T1 SKIPPED: no eligible field)" : "");
+      const placementNote = placementInfo
+        ? (placementInfo.placement === "textured"
+          ? `, textured placement: smooth areas byte-untouched (${placementInfo.markedBlocks}/${placementInfo.totalBlocks} blocks used)`
+          : ", full coverage: low-texture image, a faint texture may be visible in smooth areas")
+        : "";
+      const t1Report = t1Mode ? `+ T1 (${t1Mode}${placementNote})` : (writeT1 ? "(T1 SKIPPED: no eligible field)" : "");
       showToast(`Exported. Written tiers: T0 ${t1Report} ${writeT2 ? "+ T2" : ""}`);
     } catch (e) {
       showToast(`Export failed: ${(e as Error).message}`, "error");

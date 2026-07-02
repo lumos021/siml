@@ -20,6 +20,14 @@ const QIM_MARGIN = Number(process.env.SIML_QIM_MARGIN ?? 18)
 // does not apply - the only cost is weaker votes from smooth blocks.
 const QIM_MARGIN_SMOOTH = Number(process.env.SIML_QIM_MARGIN_SMOOTH ?? 12)
 const SMOOTH_STDDEV = 3 // block luminance std-dev below this = smooth
+// Textured-only placement: embed marks only blocks with std-dev >= EMBED
+// threshold (smooth skies stay byte-untouched); the decoder includes blocks
+// with std-dev >= DECODE threshold - a guard band, since attacks mostly
+// reduce texture. Selection never shifts bit positions (assignment is
+// positional), so a borderline block costs one vote, never a desync.
+const TEXTURE_EMBED_STDDEV = 8
+const TEXTURE_DECODE_STDDEV = 3
+const MIN_TEXTURED_REPS = 8 // fall back to full coverage below this redundancy
 const RS_NSYM = 4           // Reed-Solomon parity symbols (corrects up to 2 byte errors)
 const T1_CAPACITY = 16      // payload bytes the watermark carries (spec §4.4/§4.5.1)
 
@@ -135,6 +143,24 @@ function updateRGBWithY(rgba, Y, width, height) {
  * Embeds payload into the image via DCT-QIM.
  * Bitstream: SYNC(16) ‖ RS_encode(payload ‖ CRC16) bits, tiled across all 8×8 blocks.
  */
+// Per-block luminance standard deviation - the texture measure that drives
+// PLACEMENT (not step size; the step stays fixed, so the §4.4 adaptive-step
+// trap does not apply).
+function blockStddev(Y, width, bx, by) {
+  let mean = 0
+  for (let x = 0; x < 8; x++)
+    for (let y = 0; y < 8; y++)
+      mean += Y[((by * 8 + x) * width) + (bx * 8 + y)]
+  mean /= 64
+  let v = 0
+  for (let x = 0; x < 8; x++)
+    for (let y = 0; y < 8; y++) {
+      const d = Y[((by * 8 + x) * width) + (bx * 8 + y)] - mean
+      v += d * d
+    }
+  return Math.sqrt(v / 64)
+}
+
 function embedWatermark(rgba, width, height, payloadBytes) {
   // 1. CRC over raw payload
   const crc = crc16(payloadBytes)
@@ -147,42 +173,62 @@ function embedWatermark(rgba, width, height, payloadBytes) {
   for (let i = 0; i < 16; i++) bits.push((SYNC_TAG >> (15 - i)) & 1)
   for (const byte of rsCoded) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1)
 
+  // TEXTURED-ONLY PLACEMENT: smooth blocks (skies, gradients) are where the QIM
+  // ripple is visible and the eye is most sensitive, so when the image has
+  // enough textured blocks to carry the stream with solid redundancy, smooth
+  // blocks are left BYTE-UNTOUCHED and the payload rides only under texture.
+  // Bit assignment is POSITIONAL (blockIndex % bitLength), never selection-
+  // order, so an embedder/decoder disagreement about any single block costs one
+  // vote, not a desync - and the sync tag + CRC still gate every decode.
+  // Low-texture images fall back to full coverage (the classic recipe).
+  const blocksX = Math.floor(width / 8)
+  const blocksY = Math.floor(height / 8)
+  const Y0 = rgbToY(rgba, width, height)
+  const mask = new Uint8Array(blocksX * blocksY)
+  let eligible = 0
+  for (let by = 0; by < blocksY; by++)
+    for (let bx = 0; bx < blocksX; bx++)
+      if (blockStddev(Y0, width, bx, by) >= TEXTURE_EMBED_STDDEV) {
+        mask[by * blocksX + bx] = 1
+        eligible++
+      }
+  const selective = eligible >= MIN_TEXTURED_REPS * bits.length
+  const placement = selective ? 'textured' : 'full'
+
   // Multiple passes fight saturation clipping: applying the luminance delta to
   // near-white/near-black pixels clips, which drags the (2,1) coefficient off
   // its quantization level. Re-embedding on the clamped result re-pushes those
-  // blocks; unclipped blocks are already on-level, so later passes are no-ops
-  // for them. Deterministic and embed-side only - the decoder is unchanged, so
-  // this cannot desync under scaling (the §4.4 trap does not apply).
+  // blocks. The mask is computed ONCE from the original pixels and reused, so
+  // all passes mark the same blocks.
   const EMBED_PASSES = 3
   for (let pass = 0; pass < EMBED_PASSES; pass++) {
-    embedPass(rgba, width, height, bits)
+    embedPass(rgba, width, height, bits, selective ? mask : null)
   }
+  return { placement, markedBlocks: selective ? eligible : blocksX * blocksY, totalBlocks: blocksX * blocksY }
 }
 
-function embedPass(rgba, width, height, bits) {
+function embedPass(rgba, width, height, bits, mask) {
   const Y = rgbToY(rgba, width, height)
   const blocksX = Math.floor(width / 8)
   const blocksY = Math.floor(height / 8)
   const bitLength = bits.length
-  let bitIndex = 0
   const block = new Float32Array(64)
 
   for (let by = 0; by < blocksY; by++) {
     for (let bx = 0; bx < blocksX; bx++) {
+      const blockIndex = by * blocksX + bx
+      if (mask && !mask[blockIndex]) continue // smooth block: byte-untouched
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
           block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
 
       const dct = dct2d(block)
-      const targetBit = bits[bitIndex % bitLength]
+      // Positional bit assignment - see embedWatermark.
+      const targetBit = bits[blockIndex % bitLength]
       const coeffVal = dct[2 * 8 + 1]
-      // Margin-band QIM on Q-spaced parity levels (spec §4.4 recipe, distortion-
-      // reduced): instead of snapping the coefficient exactly onto its level
-      // (max visible distortion), move it only as far as needed to guarantee a
-      // decode margin of QIM_MARGIN. The decoder's soft distances are unchanged;
-      // this is embed-side only, so no scale-desync risk. Margin ratified by
-      // the sweep in scripts/compare-embedders.js: it must keep C-T1-04..06
-      // (JPEG q30, WebP q90, ds900) passing while minimizing grain.
+      // Margin-band QIM on Q-spaced parity levels: move the coefficient only as
+      // far as a guaranteed decode margin requires (less grain than full snap).
+      // In full-coverage mode, smooth blocks embed at the reduced margin.
       let quantum = Math.round(coeffVal / Q)
       const isEven = (quantum % 2 + 2) % 2 === 0  // guard against negative mod
       if (isEven !== (targetBit === 0)) {
@@ -190,10 +236,6 @@ function embedPass(rgba, width, height, bits) {
         quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1
       }
       const level = quantum * Q
-      // Adjacent levels alternate parity Q apart: at offset x from the correct
-      // level, d_wrong - d_correct = Q - 2x. Keep x <= (Q - margin)/2 so the
-      // margin is guaranteed while moving the coefficient no farther than needed.
-      // Smooth blocks get the reduced margin (see QIM_MARGIN_SMOOTH above).
       let mean = 0
       for (let i = 0; i < 64; i++) mean += block[i]
       mean /= 64
@@ -207,8 +249,6 @@ function embedPass(rgba, width, height, bits) {
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
           Y[((by * 8 + x) * width) + (bx * 8 + y)] = reconstructed[x * 8 + y]
-
-      bitIndex++
     }
   }
   updateRGBWithY(rgba, Y, width, height)
@@ -235,59 +275,67 @@ function extractWatermark(rgba, width, height, payloadByteLength) {
   // RS-coded length: payload + 2 CRC bytes + RS_NSYM parity
   const rsByteLen = payloadByteLength + 2 + RS_NSYM
   const bitLength = 16 + rsByteLen * 8          // sync + RS-coded bits
-  const softVotes = new Float64Array(bitLength)  // + = evidence for bit-0, − = bit-1
 
-  const block = new Float32Array(64)
-  let bitIndex = 0
+  // Two attempts, each fully gated by sync + RS + CRC (the fail-loud oracle):
+  // 1. Textured blocks only (std-dev >= guard threshold). Correct for
+  //    textured-placement embeds, and also valid for full-coverage embeds
+  //    (a subset of consistent votes still decodes).
+  // 2. All blocks - rescues full-coverage embeds on low-texture images where
+  //    attempt 1 had too few votes.
+  return decodeAttempt(true) || decodeAttempt(false)
 
-  for (let by = 0; by < blocksY; by++) {
-    for (let bx = 0; bx < blocksX; bx++) {
-      for (let x = 0; x < 8; x++)
-        for (let y = 0; y < 8; y++)
-          block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
+  function decodeAttempt(texturedOnly) {
+    const softVotes = new Float64Array(bitLength) // + = bit-0 evidence, − = bit-1
+    const block = new Float32Array(64)
 
-      const dct = dct2d(block)
-      const c = dct[2 * 8 + 1]
+    for (let by = 0; by < blocksY; by++) {
+      for (let bx = 0; bx < blocksX; bx++) {
+        if (texturedOnly && blockStddev(Y, width, bx, by) < TEXTURE_DECODE_STDDEV) continue
+        for (let x = 0; x < 8; x++)
+          for (let y = 0; y < 8; y++)
+            block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
 
-      // True soft-decision: distance to nearest even vs odd Q-spaced level
-      // (levels every Q, matching the embedder above and the Python reference).
-      const nearEven = 2 * Math.round(c / (2 * Q)) * Q               // nearest even-parity level
-      const nearOdd  = (2 * Math.round((c - Q) / (2 * Q)) + 1) * Q   // nearest odd-parity level
-      const dE = Math.abs(c - nearEven)
-      const dO = Math.abs(c - nearOdd)
-      // positive ⇒ closer to even ⇒ bit-0 evidence; negative ⇒ bit-1 evidence
-      softVotes[bitIndex % bitLength] += (dO - dE)
+        const dct = dct2d(block)
+        const c = dct[2 * 8 + 1]
 
-      bitIndex++
+        // True soft-decision: distance to nearest even vs odd Q-spaced level
+        // (levels every Q, matching the embedder and the Python reference).
+        const nearEven = 2 * Math.round(c / (2 * Q)) * Q               // nearest even-parity level
+        const nearOdd  = (2 * Math.round((c - Q) / (2 * Q)) + 1) * Q   // nearest odd-parity level
+        const dE = Math.abs(c - nearEven)
+        const dO = Math.abs(c - nearOdd)
+        // Positional bit assignment - MUST match the embedder.
+        softVotes[(by * blocksX + bx) % bitLength] += (dO - dE)
+      }
     }
+
+    // 1. Bit decisions from accumulated soft votes
+    const bits = Array.from(softVotes, v => v < 0 ? 1 : 0)
+
+    // 2. Verify sync tag
+    let sync = 0
+    for (let i = 0; i < 16; i++) sync = (sync << 1) | bits[i]
+    if (sync !== SYNC_TAG) return null
+
+    // 3. Reconstruct RS-coded bytes
+    const rsCoded = new Array(rsByteLen)
+    for (let i = 0; i < rsByteLen; i++) {
+      let v = 0
+      for (let b = 0; b < 8; b++) v = (v << 1) | bits[16 + i * 8 + b]
+      rsCoded[i] = v
+    }
+
+    // 4. RS decode (corrects up to 2 byte errors) - never surface a wrong value
+    const decoded = rsDecode(rsCoded, RS_NSYM)
+    if (!decoded) return null
+
+    // 5. Verify CRC over the payload bytes
+    const payload = decoded.slice(0, payloadByteLength)
+    const extractedCRC = (decoded[payloadByteLength] << 8) | decoded[payloadByteLength + 1]
+    if (extractedCRC !== crc16(payload)) return null
+
+    return payload
   }
-
-  // 1. Bit decisions from accumulated soft votes
-  const bits = Array.from(softVotes, v => v < 0 ? 1 : 0)
-
-  // 2. Verify sync tag
-  let sync = 0
-  for (let i = 0; i < 16; i++) sync = (sync << 1) | bits[i]
-  if (sync !== SYNC_TAG) return null
-
-  // 3. Reconstruct RS-coded bytes
-  const rsCoded = new Array(rsByteLen)
-  for (let i = 0; i < rsByteLen; i++) {
-    let v = 0
-    for (let b = 0; b < 8; b++) v = (v << 1) | bits[16 + i * 8 + b]
-    rsCoded[i] = v
-  }
-
-  // 4. RS decode (corrects up to 2 byte errors) - never surface a wrong value
-  const decoded = rsDecode(rsCoded, RS_NSYM)
-  if (!decoded) return null
-
-  // 5. Verify CRC over the payload bytes
-  const payload = decoded.slice(0, payloadByteLength)
-  const extractedCRC = (decoded[payloadByteLength] << 8) | decoded[payloadByteLength + 1]
-  if (extractedCRC !== crc16(payload)) return null
-
-  return payload
 }
 
 /**
