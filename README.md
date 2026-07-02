@@ -107,8 +107,10 @@ Any organization - a CDN, an image optimizer, a chat app, a browser/OS image vie
 **The highest-leverage integration is _Preserve_:** if your pipeline re-encodes images, copy the SIML layer to your output and the text survives *your* compression perfectly - no watermark fragility, no registry. Because coordinates are percentages, it survives resizing too.
 
 ```js
+const { preserveLayer } = require('siml-writer');
+
 const out   = await reencode(sourceBytes);            // your pipeline, unchanged
-const final = await siml.preserve(sourceBytes, out);  // the layer survives you
+const final = await preserveLayer(sourceBytes, out);  // the layer survives you
 ```
 
 The reference hook ([`siml_preserve.py`](siml_preserve.py)) is **tested** - it round-trips payloads across PNG/JPEG/WebP, handles format conversion and resize, enforces a payload size cap, and passes an adversarial input suite (malformed files, oversized payloads, format spoofing). Full guide, SDK, registry protocol, and security testing requirements: **[INTEGRATION.md](INTEGRATION.md)**.
