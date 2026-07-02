@@ -647,9 +647,13 @@ export default function ViewPage() {
     }
     logs.push("❌ T2 Fingerprint registry lookup failed.");
 
-    // Fallback to T1 Direct payload if T2 failed
+    // Fallback to T1 Direct payload if T2 failed. T1 direct mode carries the
+    // VALUE only (no geometry), so we must not draw a positioned overlay; the
+    // recovered field is surfaced in the side panel instead (bounds are a
+    // placeholder and the render layer skips T1-only recoveries).
     if (t1Text) {
       logs.push("ℹ️ T2 failed or offline. Falling back to offline T1 direct payload.");
+      logs.push("ℹ️ T1 carries the value itself, not its position: no overlay is drawn; use the panel to copy or act.");
       const mockMeta: MetaJson = {
         siml: "0.3",
         contentId: "t1-resolved",
@@ -657,7 +661,7 @@ export default function ViewPage() {
           id: "t1",
           text: t1Text,
           type: t1Text.includes("http") ? "url" : "phone",
-          bounds: { x: 10, y: 50, w: 80, h: 10 },
+          bounds: { x: 0, y: 0, w: 0, h: 0 },
           selectable: true,
           label: "Watermark Recovery"
         }]
@@ -911,6 +915,18 @@ export default function ViewPage() {
               </div>
             </div>
 
+            {activeTier?.startsWith("T1") && (
+              <div style={{
+                marginBottom: "0.75rem", padding: "0.75rem 1rem", borderRadius: "8px",
+                background: "rgba(45,212,168,0.10)", border: "1px solid rgba(45,212,168,0.35)",
+                color: "var(--text-primary)", fontSize: "0.85rem",
+              }}>
+                🔓 Recovered offline from the pixel watermark. The watermark carries the value
+                itself but not its position, so nothing is highlighted on the image; copy or act
+                on the recovered field in the panel on the right.
+              </div>
+            )}
+
             {stale && (
               <div style={{
                 marginBottom: "0.75rem", padding: "0.75rem 1rem", borderRadius: "8px",
@@ -931,8 +947,11 @@ export default function ViewPage() {
                 draggable={false}
               />
 
-              {/* Positioned Selectable SIML Text overlays */}
-              {meta && meta.textLayer.map((obj) => (
+              {/* Positioned Selectable SIML Text overlays. Skipped for T1-only
+                  recoveries: the watermark carries the value without geometry,
+                  and a made-up box would mislead (the field lives in the side
+                  panel instead). */}
+              {meta && !activeTier?.startsWith("T1") && meta.textLayer.map((obj) => (
                 <span
                   key={obj.id}
                   className="siml-text-node"
