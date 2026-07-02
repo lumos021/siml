@@ -13,6 +13,13 @@ const Q = 26                // QIM step size
 // visible distortion. Ratified by the sweep in scripts/compare-embedders.js
 // against the pinned C-T1 floors. Env override exists ONLY for that sweep.
 const QIM_MARGIN = Number(process.env.SIML_QIM_MARGIN ?? 18)
+// Smooth blocks (skies, gradients) show the QIM ripple most, and the eye is
+// most sensitive there, so they embed with a reduced margin. EMBED-SIDE ONLY:
+// the decoder is pure distance voting and never re-derives this mask, so the
+// §4.4 desync trap (embedder/decoder disagreeing on a content-derived step)
+// does not apply - the only cost is weaker votes from smooth blocks.
+const QIM_MARGIN_SMOOTH = Number(process.env.SIML_QIM_MARGIN_SMOOTH ?? 12)
+const SMOOTH_STDDEV = 3 // block luminance std-dev below this = smooth
 const RS_NSYM = 4           // Reed-Solomon parity symbols (corrects up to 2 byte errors)
 const T1_CAPACITY = 16      // payload bytes the watermark carries (spec §4.4/§4.5.1)
 
@@ -184,9 +191,16 @@ function embedPass(rgba, width, height, bits) {
       }
       const level = quantum * Q
       // Adjacent levels alternate parity Q apart: at offset x from the correct
-      // level, d_wrong - d_correct = Q - 2x. Keep x <= (Q - QIM_MARGIN)/2 so the
+      // level, d_wrong - d_correct = Q - 2x. Keep x <= (Q - margin)/2 so the
       // margin is guaranteed while moving the coefficient no farther than needed.
-      const band = (Q - QIM_MARGIN) / 2
+      // Smooth blocks get the reduced margin (see QIM_MARGIN_SMOOTH above).
+      let mean = 0
+      for (let i = 0; i < 64; i++) mean += block[i]
+      mean /= 64
+      let varSum = 0
+      for (let i = 0; i < 64; i++) { const d = block[i] - mean; varSum += d * d }
+      const margin = Math.sqrt(varSum / 64) < SMOOTH_STDDEV ? QIM_MARGIN_SMOOTH : QIM_MARGIN
+      const band = (Q - margin) / 2
       const off = Math.max(-band, Math.min(band, coeffVal - level))
       dct[2 * 8 + 1] = level + off
       const reconstructed = idct2d(dct)

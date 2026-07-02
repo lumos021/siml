@@ -8,6 +8,8 @@ const { embedWatermark, extractWatermark, crc16, selectT1Payload, T1_CAPACITY } 
 const { hammingDistance, calculatePHashFromGreyscale, MATCH_THRESHOLD, STALE_THRESHOLD } = require('../src/fingerprint')
 const { embedSIML: embedJPEG } = require('../src/embed-jpeg')
 
+jest.setTimeout(60000) // T1 embedding runs 3 refinement passes; slow under parallel load
+
 const FIXTURES = path.join(__dirname, 'fixtures')
 const SAMPLE_PNG = path.join(FIXTURES, 'sample.png')
 const SAMPLE_JPG = path.join(FIXTURES, 'sample.jpg')

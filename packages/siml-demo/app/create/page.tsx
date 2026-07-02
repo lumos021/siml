@@ -52,6 +52,8 @@ const SYNC_TAG = 0xD4B3;
 const CANONICAL_WIDTH = 1024;
 const Q = 26;
 const QIM_MARGIN = 18; // guaranteed decode margin; MUST match siml-writer
+const QIM_MARGIN_SMOOTH = 12; // reduced margin in smooth blocks (less visible grain)
+const SMOOTH_STDDEV = 3; // block luminance std-dev below this = smooth
 const RS_NSYM = 4;  // Reed-Solomon parity symbols (matches writer/rs.js)
 
 // ─── Inline GF(2˸8) RS encoder (mirrors writer/rs.js) ────────────────────────────
@@ -197,7 +199,16 @@ function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number,
         quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1;
       }
       const level = quantum * Q;
-      const band = (Q - QIM_MARGIN) / 2;
+      // Smooth blocks (skies, gradients) show the ripple most, so they embed at
+      // the reduced margin. Embed-side only: the decoder never re-derives this
+      // mask, so there is no desync risk. MUST match siml-writer.
+      let bMean = 0;
+      for (let i = 0; i < 64; i++) bMean += block[i];
+      bMean /= 64;
+      let bVar = 0;
+      for (let i = 0; i < 64; i++) { const d = block[i] - bMean; bVar += d * d; }
+      const margin = Math.sqrt(bVar / 64) < SMOOTH_STDDEV ? QIM_MARGIN_SMOOTH : QIM_MARGIN;
+      const band = (Q - margin) / 2;
       const off = Math.max(-band, Math.min(band, coeffVal - level));
       dct[2 * 8 + 1] = level + off;
       const reconstructed = idct2d(dct);
@@ -930,7 +941,10 @@ export default function CreatePage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(downloadURL);
 
-      showToast(`SIML v0.3 Carrier exported successfully! written tiers: T0 ${writeT1 ? "+ T1" : ""} ${writeT2 ? "+ T2" : ""}`);
+      // Report what was ACTUALLY written, not what was requested: T1 can be
+      // legitimately skipped (no eligible field), and saying "T1" then would lie.
+      const t1Report = t1Mode ? `+ T1 (${t1Mode})` : (writeT1 ? "(T1 SKIPPED: no eligible field)" : "");
+      showToast(`Exported. Written tiers: T0 ${t1Report} ${writeT2 ? "+ T2" : ""}`);
     } catch (e) {
       showToast(`Export failed: ${(e as Error).message}`, "error");
     }

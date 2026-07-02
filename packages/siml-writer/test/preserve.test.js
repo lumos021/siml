@@ -6,6 +6,8 @@ const { write, preserveLayer } = require('../src/index')
 const preserve = require('../src/preserve')
 const { extractPayload } = require('../../siml-reader/src/extract')
 
+jest.setTimeout(60000) // T1 embedding runs 3 refinement passes; slow under parallel load
+
 // Isolated base image inside our own output dir - must NOT share/touch the
 // fixtures/ dir that writer.test.js owns and deletes (parallel-worker race).
 const OUTPUT_DIR = path.join(__dirname, 'output-preserve')

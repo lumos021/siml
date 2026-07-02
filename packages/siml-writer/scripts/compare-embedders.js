@@ -44,6 +44,8 @@ function cRsEncode (data, nsym) {
 const SYNC_TAG = 0xD4B3
 const Q = 26
 const QIM_MARGIN = 18 // MUST match siml-writer
+const QIM_MARGIN_SMOOTH = 12
+const SMOOTH_STDDEV = 3
 const RS_NSYM = 4
 const cosTable = new Float32Array(8 * 8)
 for (let u = 0; u < 8; u++) for (let x = 0; x < 8; x++) cosTable[u * 8 + x] = Math.cos(((2 * x + 1) * u * Math.PI) / 16)
@@ -119,7 +121,13 @@ function portEmbedPass (rgba, width, height, bits) {
         quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1
       }
       const level = quantum * Q
-      const band = (Q - QIM_MARGIN) / 2
+      let bMean = 0
+      for (let i = 0; i < 64; i++) bMean += block[i]
+      bMean /= 64
+      let bVar = 0
+      for (let i = 0; i < 64; i++) { const d = block[i] - bMean; bVar += d * d }
+      const margin = Math.sqrt(bVar / 64) < SMOOTH_STDDEV ? QIM_MARGIN_SMOOTH : QIM_MARGIN
+      const band = (Q - margin) / 2
       const off = Math.max(-band, Math.min(band, coeffVal - level))
       dct[2 * 8 + 1] = level + off
       const reconstructed = idct2d(dct)
