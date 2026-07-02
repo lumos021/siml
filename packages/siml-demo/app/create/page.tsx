@@ -1266,10 +1266,12 @@ export default function CreatePage() {
             </div>
 
             <p style={{ fontSize: "0.6875rem", color: "var(--text-muted)", marginTop: "0.75rem", lineHeight: 1.4 }}>
-              Tier 1 embeds the payload in the luminance channel: an invisible but real pixel
-              change (about 39 dB PSNR), traded for offline re-encode survival. Uncheck it for a
-              byte-exact raster. Tier 2 registers an appearance hash with the resolver; it never
-              alters pixels.
+              Tier 1 embeds the payload in the luminance channel: a real pixel change (~46 dB
+              PSNR) traded for offline re-encode survival. On graphics it is effectively
+              invisible; on smooth photographic skies a faint texture can show. For
+              pixel-perfect photos, uncheck T1 and rely on T0 + T2 (both lossless; T2 recovers
+              through screenshots and recompression via the registry). Tier 2 never alters
+              pixels.
             </p>
           </div>
         </div>
