@@ -1,7 +1,7 @@
 {
   "name": "siml-reader",
   "version": "0.1.0",
-  "description": "Browser library for rendering .siml files",
+  "description": "Read and render SIML text layers from images in the browser: JUMBF parse, watermark extraction, registry resolve, selectable overlay",
   "main": "src/index.js",
   "module": "src/index.js",
   "browser": "src/index.js",
@@ -16,5 +16,27 @@
   "scripts": {
     "build": "esbuild src/index.js --bundle --minify --outfile=dist/siml-reader.min.js",
     "test": "jest --env jsdom"
+  },
+  "keywords": [
+    "siml",
+    "image-metadata",
+    "jumbf",
+    "c2pa",
+    "selectable-text",
+    "text-layer",
+    "ocr-alternative",
+    "copy-text-from-image",
+    "image-text",
+    "accessibility",
+    "browser"
+  ],
+  "license": "CC0-1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lumos021/siml.git"
+  },
+  "homepage": "https://github.com/lumos021/siml#readme",
+  "bugs": {
+    "url": "https://github.com/lumos021/siml/issues"
   }
 }

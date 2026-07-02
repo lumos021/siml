@@ -163,6 +163,31 @@ To sustain ongoing development, the project offers optional paid services *aroun
 
 ---
 
+## FAQ
+
+**How do I make text inside an image selectable and copyable?**
+Author the image with a SIML writer (or the demo editor). The text is baked into the pixels as usual, and also carried as positioned, typed objects a viewer can overlay for native selection and copy. No OCR at read time.
+
+**Is this just OCR?**
+No. OCR *guesses* text from pixels and gets digits wrong. SIML carries the *exact authored text*, byte for byte, so a phone number or price is either recovered exactly or not at all. Every recovery path has an integrity check; a wrong value is never surfaced.
+
+**How is this different from Apple Live Text or Google Lens?**
+Those are OCR at read time: excellent for casual copying, but inferred, unstructured, and unaware of author intent. SIML is authoritative (written at export), semantically typed (phone/url/email/address/price), and carries author permissions and intent for actions.
+
+**Does it survive WhatsApp, Instagram, or screenshots?**
+Re-encoding at reasonable resolution: yes, offline, via the pixel watermark. Aggressive downscale and screenshots: yes, via the fingerprint registry (network needed). See the survival table above; the limits are measured and stated.
+
+**Does it change how the image looks?**
+T0 and T2 never touch a pixel. T1 (optional) perturbs luminance imperceptibly (~39 dB PSNR) to survive re-encoding; it is an explicit opt-in trade.
+
+**How does it relate to C2PA / Content Credentials?**
+SIML rides the same JUMBF container C2PA uses and can be expressed as a C2PA assertion. It is complementary: C2PA answers "where did this image come from," SIML answers "what does the text in it say."
+
+**Can AI models and crawlers read SIML images?**
+Yes. Any parser that reads the JUMBF box gets the exact text, types, and positions as JSON, with no vision model inference. That makes image text reliably machine-readable for search, accessibility, and AI systems.
+
+---
+
 ## License
 
 Released into the public domain under **[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)**. Implement it, extend it, build products on it - no royalties, no permission needed.

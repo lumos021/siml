@@ -1,7 +1,7 @@
 {
   "name": "siml-writer",
   "version": "0.1.0",
-  "description": "Creates .siml files from images and text layer definitions",
+  "description": "Embed selectable, typed text layers (SIML) into PNG/JPEG/WebP: JUMBF container, robust DCT watermark, perceptual-hash registration",
   "main": "src/index.js",
   "bin": {
     "siml-write": "src/cli.js"
@@ -18,5 +18,32 @@
   "scripts": {
     "build": "echo no-op",
     "test": "jest"
+  },
+  "keywords": [
+    "siml",
+    "image-metadata",
+    "jumbf",
+    "c2pa",
+    "watermark",
+    "watermarking",
+    "perceptual-hash",
+    "phash",
+    "selectable-text",
+    "text-layer",
+    "ocr-alternative",
+    "png",
+    "jpeg",
+    "webp",
+    "image-text",
+    "accessibility"
+  ],
+  "license": "CC0-1.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lumos021/siml.git"
+  },
+  "homepage": "https://github.com/lumos021/siml#readme",
+  "bugs": {
+    "url": "https://github.com/lumos021/siml/issues"
   }
 }
