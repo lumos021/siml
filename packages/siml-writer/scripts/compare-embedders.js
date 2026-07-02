@@ -43,6 +43,7 @@ function cRsEncode (data, nsym) {
 }
 const SYNC_TAG = 0xD4B3
 const Q = 26
+const QIM_MARGIN = 18 // MUST match siml-writer
 const RS_NSYM = 4
 const cosTable = new Float32Array(8 * 8)
 for (let u = 0; u < 8; u++) for (let x = 0; x < 8; x++) cosTable[u * 8 + x] = Math.cos(((2 * x + 1) * u * Math.PI) / 16)
@@ -117,7 +118,10 @@ function portEmbedPass (rgba, width, height, bits) {
       if (isEven !== (targetBit === 0)) {
         quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1
       }
-      dct[2 * 8 + 1] = quantum * Q
+      const level = quantum * Q
+      const band = (Q - QIM_MARGIN) / 2
+      const off = Math.max(-band, Math.min(band, coeffVal - level))
+      dct[2 * 8 + 1] = level + off
       const reconstructed = idct2d(dct)
       for (let x = 0; x < 8; x++) for (let y = 0; y < 8; y++) Y[((by * 8 + x) * width) + (bx * 8 + y)] = reconstructed[x * 8 + y]
       bitIndex++
@@ -127,9 +131,9 @@ function portEmbedPass (rgba, width, height, bits) {
     const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2]
     const oldY = 0.299 * r + 0.587 * g + 0.114 * b
     const delta = Y[i] - oldY
-    rgba[i * 4] = Math.max(0, Math.min(255, r + delta))
-    rgba[i * 4 + 1] = Math.max(0, Math.min(255, g + delta))
-    rgba[i * 4 + 2] = Math.max(0, Math.min(255, b + delta))
+    rgba[i * 4] = Math.round(Math.max(0, Math.min(255, r + delta)))
+    rgba[i * 4 + 1] = Math.round(Math.max(0, Math.min(255, g + delta)))
+    rgba[i * 4 + 2] = Math.round(Math.max(0, Math.min(255, b + delta)))
   }
 }
 // ---- end browser port ----

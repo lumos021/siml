@@ -37,14 +37,13 @@ A reader tries them in fidelity order - **T0 → T1 → T2 → OCR/visible-text 
 | Direct file / email / CDN (no re-encode) | T0 | ✅ |
 | Recompression at preserved/high resolution | T1 | ✅ |
 | Downscale only (to ~½ resolution) | T1 | ✅ |
-| Downscale to ~900px **+** recompression | T1 | ✅ |
-| Aggressive downscale (<800px) **+** recompression | **T2** | ❌ (registry) |
+| Downscale **+** recompression | **T2** (structured banners may also survive via T1 to ~900px) | ❌ (registry) |
 | Screenshot / screen-grab | **T2** | ❌ (registry) |
 | Heavy crop / rotation / photo-of-screen | OCR + visible text | ✅ (lossy) |
 
 **Honesty rule baked into the project:** "survives social media / screenshots" is a **T2** capability (it needs the registry). The offline configuration (T0 + T1) is described as "survives re-encode and moderate downscale" - never "survives anything."
 
-The Tier-1 reference watermark (`siml_watermark.py`) is measured at ~39 dB PSNR (visually negligible) and recovers a phone number cleanly through JPEG q30+, high-quality WebP (q90+), double-compression, screenshots, and downscale-to-900 + recompress. Below ~800px + recompress the signal is genuinely gone - so it **fails loudly** (a CRC rejects bad reads) rather than returning a wrong number, and hands off to T2.
+The Tier-1 reference watermark (`siml_watermark.py`) is measured at ~45 dB PSNR (visually negligible) and recovers a phone number cleanly through JPEG q30+, high-quality WebP (q90+), double-compression, and screenshot-style transforms. Under aggressive downscale + recompression the signal is genuinely gone - so it **fails loudly** (a CRC rejects bad reads) rather than returning a wrong number, and hands off to T2.
 
 ---
 

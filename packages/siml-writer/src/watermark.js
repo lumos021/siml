@@ -8,6 +8,11 @@ const { rsEncode, rsDecode } = require('./rs')
 const SYNC_TAG = 0xD4B3     // 16-bit sync tag (spec §4.3 validity oracle)
 const CANONICAL_WIDTH = 1024
 const Q = 26                // QIM step size
+// Guaranteed embed-time decode margin (d_wrong - d_correct) in coefficient
+// units, 0..Q. Q = full snap (max robustness, max grain); smaller = less
+// visible distortion. Ratified by the sweep in scripts/compare-embedders.js
+// against the pinned C-T1 floors. Env override exists ONLY for that sweep.
+const QIM_MARGIN = Number(process.env.SIML_QIM_MARGIN ?? 18)
 const RS_NSYM = 4           // Reed-Solomon parity symbols (corrects up to 2 byte errors)
 const T1_CAPACITY = 16      // payload bytes the watermark carries (spec §4.4/§4.5.1)
 
@@ -102,10 +107,12 @@ function updateRGBWithY(rgba, Y, width, height) {
     const oldY = 0.299 * oldR + 0.587 * oldG + 0.114 * oldB
     const delta = Y[i] - oldY
 
-    // Apply the luminance delta to RGB channels (preserves chromaticity)
-    rgba[i * 4]     = Math.max(0, Math.min(255, oldR + delta))
-    rgba[i * 4 + 1] = Math.max(0, Math.min(255, oldG + delta))
-    rgba[i * 4 + 2] = Math.max(0, Math.min(255, oldB + delta))
+    // Apply the luminance delta to RGB channels (preserves chromaticity).
+    // Math.round is explicit: plain Buffers truncate and Uint8ClampedArrays
+    // round, so without it Node and browser embeds diverge subtly.
+    rgba[i * 4]     = Math.round(Math.max(0, Math.min(255, oldR + delta)))
+    rgba[i * 4 + 1] = Math.round(Math.max(0, Math.min(255, oldG + delta)))
+    rgba[i * 4 + 2] = Math.round(Math.max(0, Math.min(255, oldB + delta)))
   }
 }
 
@@ -162,17 +169,26 @@ function embedPass(rgba, width, height, bits) {
       const dct = dct2d(block)
       const targetBit = bits[bitIndex % bitLength]
       const coeffVal = dct[2 * 8 + 1]
-      // QIM levels every Q with the bit in the level's parity (matches the
-      // validated Python reference: q = round(c/Q), decision margin Q/2 = 13).
-      // NOT Q/2-spaced levels - that halves the margin and drops the JPEG
-      // floor from ~q30 to ~q40 (measured in scripts/compare-embedders.js).
+      // Margin-band QIM on Q-spaced parity levels (spec §4.4 recipe, distortion-
+      // reduced): instead of snapping the coefficient exactly onto its level
+      // (max visible distortion), move it only as far as needed to guarantee a
+      // decode margin of QIM_MARGIN. The decoder's soft distances are unchanged;
+      // this is embed-side only, so no scale-desync risk. Margin ratified by
+      // the sweep in scripts/compare-embedders.js: it must keep C-T1-04..06
+      // (JPEG q30, WebP q90, ds900) passing while minimizing grain.
       let quantum = Math.round(coeffVal / Q)
       const isEven = (quantum % 2 + 2) % 2 === 0  // guard against negative mod
       if (isEven !== (targetBit === 0)) {
-        // move to the nearest correct-parity level, toward the residual
+        // nearest correct-parity level, toward the residual
         quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1
       }
-      dct[2 * 8 + 1] = quantum * Q
+      const level = quantum * Q
+      // Adjacent levels alternate parity Q apart: at offset x from the correct
+      // level, d_wrong - d_correct = Q - 2x. Keep x <= (Q - QIM_MARGIN)/2 so the
+      // margin is guaranteed while moving the coefficient no farther than needed.
+      const band = (Q - QIM_MARGIN) / 2
+      const off = Math.max(-band, Math.min(band, coeffVal - level))
+      dct[2 * 8 + 1] = level + off
       const reconstructed = idct2d(dct)
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)

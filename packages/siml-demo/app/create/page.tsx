@@ -51,6 +51,7 @@ function selectT1Payload(
 const SYNC_TAG = 0xD4B3;
 const CANONICAL_WIDTH = 1024;
 const Q = 26;
+const QIM_MARGIN = 18; // guaranteed decode margin; MUST match siml-writer
 const RS_NSYM = 4;  // Reed-Solomon parity symbols (matches writer/rs.js)
 
 // ─── Inline GF(2˸8) RS encoder (mirrors writer/rs.js) ────────────────────────────
@@ -187,14 +188,18 @@ function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number,
       const dct = dct2d(block);
       const targetBit = bits[bitIndex % bitLength];
       const coeffVal = dct[2 * 8 + 1];
-      // QIM levels every Q with the bit in the level's parity (decision margin
-      // Q/2, matching the validated reference). MUST match siml-writer.
+      // Margin-band QIM on Q-spaced parity levels: guarantee a decode margin of
+      // QIM_MARGIN while moving the coefficient no farther than required (less
+      // grain than full snapping). MUST match siml-writer/src/watermark.js.
       let quantum = Math.round(coeffVal / Q);
       const isEven = ((quantum % 2) + 2) % 2 === 0;
       if (isEven !== (targetBit === 0)) {
         quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1;
       }
-      dct[2 * 8 + 1] = quantum * Q;
+      const level = quantum * Q;
+      const band = (Q - QIM_MARGIN) / 2;
+      const off = Math.max(-band, Math.min(band, coeffVal - level));
+      dct[2 * 8 + 1] = level + off;
       const reconstructed = idct2d(dct);
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
@@ -207,9 +212,11 @@ function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number,
     const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
     const oldY = 0.299 * r + 0.587 * g + 0.114 * b;
     const delta = Y[i] - oldY;
-    rgba[i * 4]     = Math.max(0, Math.min(255, r + delta));
-    rgba[i * 4 + 1] = Math.max(0, Math.min(255, g + delta));
-    rgba[i * 4 + 2] = Math.max(0, Math.min(255, b + delta));
+    // Math.round keeps browser embeds bit-identical to the Node writer
+    // (Buffers truncate, clamped arrays round).
+    rgba[i * 4]     = Math.round(Math.max(0, Math.min(255, r + delta)));
+    rgba[i * 4 + 1] = Math.round(Math.max(0, Math.min(255, g + delta)));
+    rgba[i * 4 + 2] = Math.round(Math.max(0, Math.min(255, b + delta)));
   }
 }
 
@@ -776,10 +783,17 @@ export default function CreatePage() {
       // its true position via OCR + oracle search.
       let t1Mode: "direct" | "id" | "verify" | null = null;
       if (writeT1) {
+        // Verify mode checksums a field OCR can actually re-read: an actionable
+        // typed value (phone preferred). A decorative title marked primary is
+        // NOT eligible - OCR-verifying stylized display text fails in practice.
         const chosen =
-          elements.find((e) => e.primary === true) ||
+          elements.find((e) => e.primary === true && ACTIONABLE_TYPES.has(e.type)) ||
+          elements.find((e) => e.type === "phone" && (e.intent || "actionable") === "actionable") ||
           elements.find((e) => (e.intent || "actionable") === "actionable" && ACTIONABLE_TYPES.has(e.type));
         const sel = selectT1Payload(elements, contentId);
+        if (t1VerifyMode && !chosen) {
+          showToast("Verify mode needs an actionable field (phone/url/email/address) - falling back to direct mode.", "error");
+        }
         if (t1VerifyMode && chosen) {
           const norm = normalizeForVerify(chosen.type, chosen.text);
           const crc = computeCRC32(new TextEncoder().encode(norm));

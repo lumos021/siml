@@ -21,7 +21,7 @@ mandatory pixel-verification rule for T2 (§5.3.1).
 ## 0. What Changed Since v0.2 - and Why
 
 v0.2 bound the text layer to the file **container** (a JUMBF box). That is fast,
-lossless, and rich, but it dies the instant any pipeline re-encodes pixels  - 
+lossless, and rich, but it dies the instant any pipeline re-encodes pixels,
 which is exactly what social platforms and many CMS optimizers do. v0.2 admitted
 this and punted "survive re-encode" to a vague future registry.
 
@@ -35,7 +35,7 @@ by experiment (§4.6 reports the actual numbers):
 TIER                      email / CDN      moderate scale  screenshots, q20
 ─────────────────────────────────────────────────────────────────────────────
 T0  Container (JUMBF)       ✅ lossless      ❌              ❌
-T1  Pixel watermark          ✅              ✅ (≥~900px)     ❌
+T1  Pixel watermark          ✅              ✅ (moderate)    ❌
 T2  Fingerprint + resolver   ✅              ✅              ✅ (needs registry)
 ─────────────────────────────────────────────────────────────────────────────
 Crop / rotation / photo-of-screen: weakly covered → graceful fallback to visible
@@ -98,7 +98,7 @@ v0.3 replaces it with a precise contract:
 - **T0 is lossless.** Writing the container never alters a pixel. An image with
   only T0 is bit-identical in its raster to the un-watermarked original.
 - **T1 is lossy-but-imperceptible.** Writing the watermark perturbs luminance.
-  Measured PSNR in the reference embed is ~39 dB (§4.6) - visually negligible on
+  Measured PSNR in the reference embed is ~45 dB (§4.6, margin-band QIM) - visually negligible on
   typical banner content; flat regions are the worst case for visibility and are
   handled by step choice, not adaptive masking (see the §4.4 caution).
 - **T2 is lossless.** The fingerprint is *computed from* the image; it does not
@@ -203,8 +203,8 @@ present, readers/writers use the first in reading order and SHOULD warn.
 
 Two reference builds were measured. The **production reference**
 (`siml_watermark.py`: fixed-step QIM + soft-decision + RS + CRC) supersedes the
-earlier spike; numbers below are from it (1024×512, Q≈26, ~39 dB PSNR, phone-number
-payload). "Decoded" means the CRC validated - a failed CRC returns nothing rather
+earlier spike; numbers below are from it (1024×512, Q≈26, margin-band QIM with guaranteed decode margin 18, ~45 dB
+PSNR, phone-number payload). "Decoded" means the CRC validated - a failed CRC returns nothing rather
 than a wrong value.
 
 | Channel transform | Result |
@@ -215,7 +215,7 @@ than a wrong value.
 | WebP | ✅ decoded at q90+; content-dependent below (always a loud reject, never a wrong value) |
 | Screenshot-style (downscale 0.85 + noise + q70) | ✅ decoded |
 | Downscale **only** → renormalize to canonical | ✅ to ~480px width; degrades by ~400px |
-| Downscale **+ recompression** | ✅ to ~900px width; **fails ≤~800px** → loud CRC reject, **never a wrong number** |
+| Downscale **+ recompression** | content-dependent below full size (structured banners may survive to ~900px) → loud CRC reject, **never a wrong number**; that region is T2's job |
 | Crop (full-width, on-grid) | ✅ via row redundancy |
 | Crop (loses width / off-grid / repasted) | ❌ → T2 / OCR |
 
