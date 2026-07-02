@@ -133,6 +133,19 @@ function embedWatermark(rgba, width, height, payloadBytes) {
   for (let i = 0; i < 16; i++) bits.push((SYNC_TAG >> (15 - i)) & 1)
   for (const byte of rsCoded) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1)
 
+  // Multiple passes fight saturation clipping: applying the luminance delta to
+  // near-white/near-black pixels clips, which drags the (2,1) coefficient off
+  // its quantization level. Re-embedding on the clamped result re-pushes those
+  // blocks; unclipped blocks are already on-level, so later passes are no-ops
+  // for them. Deterministic and embed-side only - the decoder is unchanged, so
+  // this cannot desync under scaling (the §4.4 trap does not apply).
+  const EMBED_PASSES = 3
+  for (let pass = 0; pass < EMBED_PASSES; pass++) {
+    embedPass(rgba, width, height, bits)
+  }
+}
+
+function embedPass(rgba, width, height, bits) {
   const Y = rgbToY(rgba, width, height)
   const blocksX = Math.floor(width / 8)
   const blocksY = Math.floor(height / 8)
@@ -149,16 +162,17 @@ function embedWatermark(rgba, width, height, payloadBytes) {
       const dct = dct2d(block)
       const targetBit = bits[bitIndex % bitLength]
       const coeffVal = dct[2 * 8 + 1]
-      const step = Q / 2
-      const quantum = Math.round(coeffVal / step)
-      let quantizedVal = quantum * step
+      // QIM levels every Q with the bit in the level's parity (matches the
+      // validated Python reference: q = round(c/Q), decision margin Q/2 = 13).
+      // NOT Q/2-spaced levels - that halves the margin and drops the JPEG
+      // floor from ~q30 to ~q40 (measured in scripts/compare-embedders.js).
+      let quantum = Math.round(coeffVal / Q)
       const isEven = (quantum % 2 + 2) % 2 === 0  // guard against negative mod
       if (isEven !== (targetBit === 0)) {
-        const up = (quantum + 1) * step
-        const down = (quantum - 1) * step
-        quantizedVal = Math.abs(coeffVal - up) < Math.abs(coeffVal - down) ? up : down
+        // move to the nearest correct-parity level, toward the residual
+        quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1
       }
-      dct[2 * 8 + 1] = quantizedVal
+      dct[2 * 8 + 1] = quantum * Q
       const reconstructed = idct2d(dct)
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
@@ -195,8 +209,6 @@ function extractWatermark(rgba, width, height, payloadByteLength) {
 
   const block = new Float32Array(64)
   let bitIndex = 0
-  const step = Q / 2
-  const dstep = 2 * step  // distance between adjacent even (or odd) quantisation levels
 
   for (let by = 0; by < blocksY; by++) {
     for (let bx = 0; bx < blocksX; bx++) {
@@ -207,9 +219,10 @@ function extractWatermark(rgba, width, height, payloadByteLength) {
       const dct = dct2d(block)
       const c = dct[2 * 8 + 1]
 
-      // True soft-decision: compute distance to nearest even vs odd quantisation level
-      const nearEven = 2 * Math.round(c / dstep) * step        // nearest even-parity level
-      const nearOdd  = (2 * Math.round((c - step) / dstep) + 1) * step  // nearest odd-parity level
+      // True soft-decision: distance to nearest even vs odd Q-spaced level
+      // (levels every Q, matching the embedder above and the Python reference).
+      const nearEven = 2 * Math.round(c / (2 * Q)) * Q               // nearest even-parity level
+      const nearOdd  = (2 * Math.round((c - Q) / (2 * Q)) + 1) * Q   // nearest odd-parity level
       const dE = Math.abs(c - nearEven)
       const dO = Math.abs(c - nearOdd)
       // positive ⇒ closer to even ⇒ bit-0 evidence; negative ⇒ bit-1 evidence

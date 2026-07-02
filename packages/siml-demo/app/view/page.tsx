@@ -165,7 +165,6 @@ function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: 
     const softVotes = new Float64Array(bitLength);
     const block = new Float32Array(64);
     let bitIndex = 0;
-    const step = Q / 2, dstep = 2 * step;
 
     for (let by = 0; by < blocksY; by++) {
       for (let bx = 0; bx < blocksX; bx++) {
@@ -175,8 +174,9 @@ function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: 
 
         const dct = dct2d(block);
         const c = dct[2 * 8 + 1];
-        const nearEven = 2 * Math.round(c / dstep) * step;
-        const nearOdd = (2 * Math.round((c - step) / dstep) + 1) * step;
+        // QIM levels every Q, bit in the level's parity (MUST match the writer).
+        const nearEven = 2 * Math.round(c / (2 * Q)) * Q;
+        const nearOdd = (2 * Math.round((c - Q) / (2 * Q)) + 1) * Q;
         softVotes[bitIndex % bitLength] += (Math.abs(c - nearOdd) - Math.abs(c - nearEven));
         bitIndex++;
       }

@@ -211,7 +211,8 @@ than a wrong value.
 |---|---|
 | No attack | ✅ decoded |
 | **JPEG q30**, q40, q60 | ✅ decoded *(q30 floor - improved over the spike's q40)* |
-| WebP q60, **double** JPEG | ✅ decoded |
+| **Double** JPEG | ✅ decoded |
+| WebP | ✅ decoded at q90+; content-dependent below (always a loud reject, never a wrong value) |
 | Screenshot-style (downscale 0.85 + noise + q70) | ✅ decoded |
 | Downscale **only** → renormalize to canonical | ✅ to ~480px width; degrades by ~400px |
 | Downscale **+ recompression** | ✅ to ~900px width; **fails ≤~800px** → loud CRC reject, **never a wrong number** |

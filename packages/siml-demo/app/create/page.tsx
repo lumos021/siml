@@ -67,7 +67,11 @@ function cRsEncode(data: number[], nsym: number): number[] {
     if (!msg[i]) continue;
     for (let j = 1; j < g.length; j++) msg[i+j] ^= cRsMul(g[j], msg[i]);
   }
-  return msg;
+  // Systematic codeword = ORIGINAL data + parity remainder. The division loop
+  // mutates the data positions while it runs, so they MUST be restored here
+  // (matches writer/rs.js). Returning `msg` directly embeds a corrupted
+  // codeword that no decoder can read.
+  return [...data, ...msg.slice(data.length)];
 }
 // ────────────────────────────────────────────────────────────────
 
@@ -148,6 +152,15 @@ function embedWatermarkClient(rgba: Uint8ClampedArray, width: number, height: nu
   for (let i = 0; i < 16; i++) bits.push((SYNC_TAG >> (15 - i)) & 1);
   for (const byte of rsCoded) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1);
 
+  // Multiple passes fight saturation clipping on near-white/near-black content:
+  // clamped pixels drag the coefficient off its level; re-embedding on the
+  // clamped result re-pushes those blocks. Decoder-independent, so no §4.4
+  // desync trap. MUST match siml-writer/src/watermark.js.
+  const EMBED_PASSES = 3;
+  for (let pass = 0; pass < EMBED_PASSES; pass++) embedPassClient(rgba, width, height, bits);
+}
+
+function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number, bits: number[]) {
   const Y = new Float32Array(width * height);
   for (let i = 0; i < width * height; i++)
     Y[i] = 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
@@ -167,16 +180,14 @@ function embedWatermarkClient(rgba: Uint8ClampedArray, width: number, height: nu
       const dct = dct2d(block);
       const targetBit = bits[bitIndex % bitLength];
       const coeffVal = dct[2 * 8 + 1];
-      const step = Q / 2;
-      const quantum = Math.round(coeffVal / step);
-      let quantizedVal = quantum * step;
+      // QIM levels every Q with the bit in the level's parity (decision margin
+      // Q/2, matching the validated reference). MUST match siml-writer.
+      let quantum = Math.round(coeffVal / Q);
       const isEven = ((quantum % 2) + 2) % 2 === 0;
       if (isEven !== (targetBit === 0)) {
-        const up = (quantum + 1) * step;
-        const down = (quantum - 1) * step;
-        quantizedVal = Math.abs(coeffVal - up) < Math.abs(coeffVal - down) ? up : down;
+        quantum += (coeffVal / Q - quantum) >= 0 ? 1 : -1;
       }
-      dct[2 * 8 + 1] = quantizedVal;
+      dct[2 * 8 + 1] = quantum * Q;
       const reconstructed = idct2d(dct);
       for (let x = 0; x < 8; x++)
         for (let y = 0; y < 8; y++)
