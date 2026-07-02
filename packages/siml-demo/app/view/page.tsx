@@ -209,6 +209,137 @@ function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: 
   } catch { return null; }
 }
 
+// ─── T1 verify mode (spec v0.4 draft): checksum-guided OCR ─────────────────
+// The watermark carries "V1" + CRC32 of the normalized authored field. OCR
+// reads the visible glyphs; the checksum is a search oracle over standard OCR
+// confusions. A value is surfaced only when a candidate's checksum matches:
+// exact text, true glyph positions, offline. No match -> fail loud.
+const VERIFY_PAYLOAD_LEN = 6;
+
+const V_CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function vCrc32(str: string): number {
+  const bytes = new TextEncoder().encode(str);
+  let crc = 0xFFFFFFFF;
+  for (const b of bytes) crc = (crc >>> 8) ^ V_CRC_TABLE[(crc ^ b) & 0xFF];
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+// Candidate normalizations (the reader doesn't know the field type in V1):
+// phone-style (+digits, min 8 chars) and generic (collapsed whitespace).
+function verifyNormalizations(s: string): string[] {
+  const out: string[] = [];
+  const phone = s.replace(/[^+\d]/g, "");
+  if (phone.replace(/\D/g, "").length >= 8) out.push(phone);
+  const generic = s.normalize("NFC").replace(/\s+/g, " ").trim();
+  if (generic) out.push(generic);
+  return out;
+}
+
+const OCR_CONFUSIONS: Record<string, string> = {
+  O: "0", o: "0", D: "0", Q: "0",
+  l: "1", I: "1", i: "1", "|": "1", "!": "1",
+  Z: "2", z: "2", E: "3", A: "4",
+  S: "5", s: "5", G: "6", b: "6",
+  T: "7", "?": "7", B: "8", g: "9", q: "9",
+};
+const MAX_ORACLE_CANDIDATES = 4096;
+
+function oracleSearch(windowText: string, expectedCrc: number): string | null {
+  const chars = [...windowText];
+  const slots: number[] = [];
+  chars.forEach((ch, idx) => { if (OCR_CONFUSIONS[ch]) slots.push(idx); });
+  const total = Math.min(1 << slots.length, MAX_ORACLE_CANDIDATES);
+  for (let mask = 0; mask < total; mask++) {
+    const c = [...chars];
+    for (let s = 0; s < slots.length; s++) {
+      if (mask & (1 << s)) c[slots[s]] = OCR_CONFUSIONS[chars[slots[s]]];
+    }
+    for (const norm of verifyNormalizations(c.join(""))) {
+      if (vCrc32(norm) === expectedCrc) return norm;
+    }
+  }
+  return null;
+}
+
+// Load tesseract.js from CDN on demand (only when a V1 checksum was actually
+// recovered from the pixels - no OCR cost otherwise). ~2 MB + cached lang data.
+function loadTesseract(): Promise<any> {
+  const w = window as any;
+  if (w.Tesseract) return Promise.resolve(w.Tesseract);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@7/dist/tesseract.min.js";
+    s.onload = () => resolve(w.Tesseract);
+    s.onerror = () => reject(new Error("could not load OCR engine"));
+    document.head.appendChild(s);
+  });
+}
+
+// OCR the delivered image and search word windows for the value whose checksum
+// matches. Keeps the TIGHTEST matching window so labels ("Call:") and OCR junk
+// don't inflate the rendered box - the overlay must hug the value's glyphs.
+async function runVerifyOcr(
+  imgEl: HTMLImageElement,
+  expectedCrc: number
+): Promise<{ exact: string; raw: string; bounds: { x: number; y: number; w: number; h: number } } | null> {
+  const W = imgEl.naturalWidth, H = imgEl.naturalHeight;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  c.getContext("2d")!.drawImage(imgEl, 0, 0);
+
+  const Tesseract = await loadTesseract();
+  const worker = await Tesseract.createWorker("eng");
+  let ocr: any;
+  try {
+    ({ data: ocr } = await worker.recognize(c.toDataURL("image/png"), {}, { blocks: true, text: true }));
+  } finally {
+    await worker.terminate();
+  }
+
+  const lines: any[] = (ocr.blocks || []).flatMap((b: any) =>
+    (b.paragraphs || []).flatMap((p: any) => p.lines || []));
+
+  let best: { exact: string; raw: string; start: number; end: number; line: any } | null = null;
+  for (const line of lines) {
+    const raw = (line.text || "").trim();
+    if (!raw) continue;
+    const words = raw.split(/\s+/);
+    for (let start = 0; start < words.length; start++) {
+      for (let end = start + 1; end <= words.length; end++) {
+        const windowText = words.slice(start, end).join(" ");
+        const exact = oracleSearch(windowText, expectedCrc);
+        if (exact && (!best || (end - start) < (best.end - best.start))) {
+          best = { exact, raw: windowText, start, end, line };
+        }
+      }
+    }
+  }
+  if (!best) return null;
+
+  const boxes = (best.line.words || []).slice(best.start, best.end).map((w: any) => w.bbox);
+  if (!boxes.length) return null;
+  const x0 = Math.min(...boxes.map((b: any) => b.x0)), y0 = Math.min(...boxes.map((b: any) => b.y0));
+  const x1 = Math.max(...boxes.map((b: any) => b.x1)), y1 = Math.max(...boxes.map((b: any) => b.y1));
+  return {
+    exact: best.exact,
+    raw: best.raw,
+    bounds: {
+      x: +(100 * x0 / W).toFixed(2),
+      y: +(100 * y0 / H).toFixed(2),
+      w: +(100 * (x1 - x0) / W).toFixed(2),
+      h: +(100 * (y1 - y0) / H).toFixed(2),
+    },
+  };
+}
+
 // T2 match threshold on the 256-bit hash (spec §5.3 ratified reference: ≤ 24).
 const T2_MATCH_THRESHOLD = 24;
 
@@ -558,6 +689,45 @@ export default function ViewPage() {
       if (watermarkBytes) {
         t1Text = new TextDecoder("utf-8").decode(watermarkBytes).replace(/\0/g, "");
         logs.push(`✅ T1 Match Found! Extracted direct payload from pixels: "${t1Text}"`);
+      }
+
+      // T1 verify mode (spec v0.4 draft): if no direct payload, try the short
+      // checksum stream, then let OCR + the oracle recover exact text + position.
+      if (!t1Text) {
+        const vBytes = extractWatermarkClient(imgData.data, canvas.width, canvas.height, VERIFY_PAYLOAD_LEN);
+        if (vBytes && vBytes[0] === 0x56 && vBytes[1] === 0x31) { // "V1"
+          const expectedCrc = ((vBytes[2] << 24) | (vBytes[3] << 16) | (vBytes[4] << 8) | vBytes[5]) >>> 0;
+          logs.push(`T1v: verify checksum recovered from pixels (${expectedCrc.toString(16)}). Running OCR + oracle search...`);
+          try {
+            const verified = await runVerifyOcr(imgElForFallback, expectedCrc);
+            if (verified) {
+              logs.push(`✅ T1v VERIFIED: OCR read "${verified.raw}" -> exact value "${verified.exact}" (checksum-proven).`);
+              logs.push(`   position from OCR boxes: ${JSON.stringify(verified.bounds)}`);
+              const type = /^\+?\d{8,}$/.test(verified.exact) ? "phone"
+                : /^https?:/i.test(verified.exact) ? "url" : "text";
+              setStale(false);
+              setMeta({
+                siml: "0.3",
+                contentId: "t1v-verified",
+                textLayer: [{
+                  id: "t1v",
+                  text: verified.exact,
+                  type,
+                  bounds: verified.bounds,
+                  runs: [{ bounds: verified.bounds, text: verified.exact }],
+                  selectable: true,
+                  label: "Verified visible text",
+                }],
+              });
+              setActiveTier("T1v Verified Text (checksum + OCR)");
+              setResolutionLogs(logs);
+              return;
+            }
+            logs.push("🛑 T1v: no OCR candidate matched the checksum - failing loud, not guessing.");
+          } catch (e) {
+            logs.push(`T1v: OCR engine unavailable (${(e as Error).message}) - skipping verify mode.`);
+          }
+        }
       }
     }
     if (!t1Text) {
@@ -915,7 +1085,18 @@ export default function ViewPage() {
               </div>
             </div>
 
-            {activeTier?.startsWith("T1") && (
+            {activeTier?.startsWith("T1v") && (
+              <div style={{
+                marginBottom: "0.75rem", padding: "0.75rem 1rem", borderRadius: "8px",
+                background: "rgba(45,212,168,0.10)", border: "1px solid rgba(45,212,168,0.35)",
+                color: "var(--text-primary)", fontSize: "0.85rem",
+              }}>
+                ✅ Verified visible text: a checksum embedded in the pixels proved the OCR reading
+                exact (byte for byte). Overlay position comes from the actual glyphs.
+              </div>
+            )}
+
+            {activeTier === "T1 (Pixel Watermark)" && (
               <div style={{
                 marginBottom: "0.75rem", padding: "0.75rem 1rem", borderRadius: "8px",
                 background: "rgba(45,212,168,0.10)", border: "1px solid rgba(45,212,168,0.35)",
@@ -951,7 +1132,7 @@ export default function ViewPage() {
                   recoveries: the watermark carries the value without geometry,
                   and a made-up box would mislead (the field lives in the side
                   panel instead). */}
-              {meta && !activeTier?.startsWith("T1") && meta.textLayer.map((obj) => (
+              {meta && activeTier !== "T1 (Pixel Watermark)" && meta.textLayer.map((obj) => (
                 <span
                   key={obj.id}
                   className="siml-text-node"

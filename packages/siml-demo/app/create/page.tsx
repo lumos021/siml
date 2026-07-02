@@ -24,6 +24,14 @@ interface CanvasTextElement {
 const ACTIONABLE_TYPES = new Set(["url", "phone", "email", "address"]);
 const T1_CAPACITY = 16; // watermark payload bytes (spec §4.4/§4.5.1)
 
+// Verify-mode normalization (spec v0.4 draft §4): the checksum is computed
+// over a canonical form so OCR whitespace variance can't break verification.
+// MUST match the viewer's verifyNormalizations.
+function normalizeForVerify(type: string, text: string): string {
+  if (type === "phone") return text.replace(/[^+\d]/g, "");
+  return text.normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
 // Mirror of siml-writer selectT1Payload (spec §4.5.1). Returns the value to embed
 // + mode, or null to skip T1. NEVER truncates - overflow falls back to contentId.
 function selectT1Payload(
@@ -136,12 +144,11 @@ function idct2d(dctBlock: Float32Array): Float32Array {
   return out;
 }
 
-function embedWatermarkClient(rgba: Uint8ClampedArray, width: number, height: number, text: string) {
-  // Caller (selectT1Payload) guarantees the value fits T1_CAPACITY, so we never
-  // truncate here (spec §4.5.1). NUL-pad the byte array, not the string, so
-  // multibyte UTF-8 isn't sliced mid-codepoint.
-  const payloadBytes = new Uint8Array(16); // zero-filled = NUL padding
-  payloadBytes.set(new TextEncoder().encode(text));
+function embedWatermarkClient(rgba: Uint8ClampedArray, width: number, height: number, payloadBytes: Uint8Array) {
+  // Callers supply the exact payload bytes: 16 NUL-padded bytes for direct/id
+  // mode (spec §4.5.1, never truncated) or 6 bytes ("V1" + CRC32) for verify
+  // mode (spec v0.4 draft). Shorter payload = shorter bitstream = more
+  // repetitions per bit = deeper survival.
 
   // CRC → RS-encode([payload ‖ CRC_hi ‖ CRC_lo])
   const crc = crc16(payloadBytes);
@@ -543,6 +550,7 @@ export default function CreatePage() {
   ]);
   const [selectedId, setSelectedId] = useState<string | null>("e1");
   const [writeT1, setWriteT1] = useState(true);
+  const [t1VerifyMode, setT1VerifyMode] = useState(false);
   const [writeT2, setWriteT2] = useState(true);
   const [toast, setToast] = useState<{ msg: string; type: string } | null>(null);
 
@@ -763,11 +771,29 @@ export default function CreatePage() {
 
       // 4. Tier 1: select the one field T1 carries (spec §4.5.1 - primary →
       // actionable → skip), never truncating. Overflow falls back to id mode.
-      let t1Mode: "direct" | "id" | null = null;
+      // Verify mode (spec v0.4 draft) embeds a 6-byte checksum of the field
+      // instead of the field itself; the viewer recovers the exact text and
+      // its true position via OCR + oracle search.
+      let t1Mode: "direct" | "id" | "verify" | null = null;
       if (writeT1) {
+        const chosen =
+          elements.find((e) => e.primary === true) ||
+          elements.find((e) => (e.intent || "actionable") === "actionable" && ACTIONABLE_TYPES.has(e.type));
         const sel = selectT1Payload(elements, contentId);
-        if (sel) {
-          embedWatermarkClient(imgData.data, 1024, 512, sel.value);
+        if (t1VerifyMode && chosen) {
+          const norm = normalizeForVerify(chosen.type, chosen.text);
+          const crc = computeCRC32(new TextEncoder().encode(norm));
+          const p = new Uint8Array(6);
+          p[0] = 0x56; p[1] = 0x31; // "V1"
+          p[2] = (crc >>> 24) & 0xFF; p[3] = (crc >>> 16) & 0xFF;
+          p[4] = (crc >>> 8) & 0xFF; p[5] = crc & 0xFF;
+          embedWatermarkClient(imgData.data, 1024, 512, p);
+          ctx.putImageData(imgData, 0, 0);
+          t1Mode = "verify";
+        } else if (sel) {
+          const payloadBytes = new Uint8Array(16); // NUL-padded, never truncated
+          payloadBytes.set(new TextEncoder().encode(sel.value));
+          embedWatermarkClient(imgData.data, 1024, 512, payloadBytes);
           ctx.putImageData(imgData, 0, 0);
           t1Mode = sel.mode;
         } else {
@@ -1183,6 +1209,21 @@ export default function CreatePage() {
                 style={{ cursor: "pointer" }}
               />
               <label htmlFor="tier1" style={{ fontSize: "0.8125rem", fontWeight: 600, cursor: "pointer" }}>T1: Pixel Watermark (alters pixels imperceptibly)</label>
+            </div>
+
+            <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", paddingLeft: "1.25rem", opacity: writeT1 ? 1 : 0.45 }}>
+              <input
+                type="checkbox"
+                checked={t1VerifyMode}
+                disabled={!writeT1}
+                onChange={(e) => setT1VerifyMode(e.target.checked)}
+                id="tier1verify"
+                style={{ cursor: writeT1 ? "pointer" : "not-allowed" }}
+              />
+              <label htmlFor="tier1verify" style={{ fontSize: "0.78rem", cursor: writeT1 ? "pointer" : "not-allowed" }}>
+                Verify mode (v0.4 experimental): embed a checksum instead of the value;
+                the viewer proves the visible text exact via OCR and recovers its true position
+              </label>
             </div>
 
             <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
