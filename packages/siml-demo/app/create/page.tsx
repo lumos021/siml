@@ -1281,7 +1281,9 @@ export default function CreatePage() {
               />
               <label htmlFor="tier1verify" style={{ fontSize: "0.78rem", cursor: writeT1 ? "pointer" : "not-allowed" }}>
                 Verify mode (v0.4 experimental): embed a checksum instead of the value;
-                the viewer proves the visible text exact via OCR and recovers its true position
+                the viewer proves the visible text exact via OCR and recovers its true position.
+                Needs clearly readable glyphs: on busy/photographic backgrounds OCR often fails
+                and recovery falls to T2 - use direct mode (unchecked) for those
               </label>
             </div>
 

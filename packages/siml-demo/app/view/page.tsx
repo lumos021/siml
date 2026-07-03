@@ -749,7 +749,7 @@ export default function ViewPage() {
               setResolutionLogs(logs);
               return;
             }
-            logs.push("🛑 T1v: no OCR candidate matched the checksum - failing loud, not guessing.");
+            logs.push("🛑 T1v: the checksum itself SURVIVED the channel, but OCR could not verify the visible text on this content (busy/photographic images defeat OCR) - failing loud, not guessing. For offline recovery on content like this, export with Verify mode OFF (direct mode).");
           } catch (e) {
             logs.push(`T1v: OCR engine unavailable (${(e as Error).message}) - skipping verify mode.`);
           }
