@@ -1,0 +1,39 @@
+# SIML - Selectable Image Markup Language
+
+> SIML makes the text inside raster images (PNG/JPEG/WebP) selectable, copyable,
+> and machine-readable: a PDF-style text layer bound to the image at three
+> independent tiers so it survives real-world distribution - re-encoding,
+> messaging apps like WhatsApp, and screenshots. Recovered values are always
+> integrity-checked: SIML returns the exact authored text or nothing, never a
+> wrong answer. The spec, reader, and reference encoder are CC0 (public domain).
+
+## How it works
+
+- T0 Container: the full text layer (objects, positions, types, styles) as JSON
+  in a JUMBF box (the same ISO container family C2PA uses). Lossless; dies on
+  re-encode.
+- T1 Watermark: a short typed field (e.g. a phone number) embedded in the
+  pixels via a dual-band DCT-QIM watermark with Reed-Solomon + CRC. Survives
+  JPEG recompression down to q30 offline; smooth image regions stay visually
+  untouched.
+- T1 verify mode (draft v0.4): the watermark carries a checksum of the visible
+  text; OCR plus a checksum-guided search recovers the exact text and its true
+  glyph positions.
+- T2 Fingerprint: a 256-bit perceptual hash resolves the full layer from a
+  registry, surviving aggressive downscales and screenshots, with mandatory
+  near-duplicate pixel verification before anything is surfaced.
+
+## Try it
+
+- /create - editor: place text on an image, export with the tiers you choose
+- /view - viewer: drop any image, watch the recovery pipeline run, simulate a
+  platform strip-and-recompress
+
+## Source and specification
+
+- Repository (CC0): https://github.com/lumos021/siml
+- Current spec: https://github.com/lumos021/siml/blob/main/SIML-SPEC-v0.3.md
+- Verified visible text draft: https://github.com/lumos021/siml/blob/main/SIML-SPEC-v0.4-draft.md
+- Integration guide: https://github.com/lumos021/siml/blob/main/INTEGRATION.md
+- Roadmap: https://github.com/lumos021/siml/blob/main/ROADMAP.md
+- npm packages: siml-writer (Node embed), siml-reader (browser read)
