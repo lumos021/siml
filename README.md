@@ -3,6 +3,8 @@
 **Make the text inside an image selectable, copyable, and machine-readable - like a PDF text layer, but for raster images, and hardened to survive real-world distribution.**
 
 > Status: working prototype (editor + viewer, all three tiers) · License: **CC0 1.0 (public domain)**
+>
+> [![tests](https://github.com/lumos021/siml/actions/workflows/test.yml/badge.svg)](https://github.com/lumos021/siml/actions/workflows/test.yml)
 
 ---
 

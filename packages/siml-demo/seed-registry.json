@@ -1,0 +1,359 @@
+{
+  "9144861c4ad33f6c3a952cbfb752d26cc285d0861fde2fff2daae200da3d9630": {
+    "siml": "0.3",
+    "contentId": "siml-sample-banner",
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "s1",
+        "text": "ACME DESIGN STUDIO - PROMO",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 11.7188,
+          "w": 34.2773,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#D8C7FF"
+        }
+      },
+      {
+        "id": "s2",
+        "text": "Creative Layouts & Graphics",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 21.4844,
+          "w": 71.1914,
+          "h": 8.7891
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 30,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        }
+      },
+      {
+        "id": "s3",
+        "text": "+91 98765 43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 6.25,
+          "y": 44.9219,
+          "w": 26.3672,
+          "h": 5.8594
+        },
+        "selectable": true,
+        "label": "Call support",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 20,
+          "weight": "medium",
+          "color": "#FFE6C2"
+        }
+      },
+      {
+        "id": "s4",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 6.25,
+          "y": 58.5938,
+          "w": 31.3477,
+          "h": 5.0781
+        },
+        "selectable": true,
+        "label": "Visit site",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 17,
+          "weight": "regular",
+          "color": "#C6E8FF"
+        }
+      },
+      {
+        "id": "s5",
+        "text": "123 Demo Street, Suite 456, SF",
+        "type": "address",
+        "intent": "readonly",
+        "bounds": {
+          "x": 6.25,
+          "y": 71.2891,
+          "w": 39.5508,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": "HQ Address",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#BFE9D4"
+        }
+      }
+    ],
+    "regionHash": "94199ff67be63101c419cc2721e7b3d07a0c698a84fbce657b06319a23ed6e6c",
+    "regionBounds": {
+      "x": 6.25,
+      "y": 44.9219,
+      "w": 26.3672,
+      "h": 5.8594
+    }
+  },
+  "9144861c4ad33f6c3a952cbfb752d26cc285f0861fd62fff2daae200da3d9630": {
+    "siml": "0.3",
+    "contentId": "siml-sample-banner",
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "s1",
+        "text": "ACME DESIGN STUDIO - PROMO",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 11.7188,
+          "w": 34.2773,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#D8C7FF"
+        }
+      },
+      {
+        "id": "s2",
+        "text": "Creative Layouts & Graphics",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 21.4844,
+          "w": 71.1914,
+          "h": 8.7891
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 30,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        }
+      },
+      {
+        "id": "s3",
+        "text": "+91 98765 43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 6.25,
+          "y": 44.9219,
+          "w": 26.3672,
+          "h": 5.8594
+        },
+        "selectable": true,
+        "label": "Call support",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 20,
+          "weight": "medium",
+          "color": "#FFE6C2"
+        }
+      },
+      {
+        "id": "s4",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 6.25,
+          "y": 58.5938,
+          "w": 31.3477,
+          "h": 5.0781
+        },
+        "selectable": true,
+        "label": "Visit site",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 17,
+          "weight": "regular",
+          "color": "#C6E8FF"
+        }
+      },
+      {
+        "id": "s5",
+        "text": "123 Demo Street, Suite 456, SF",
+        "type": "address",
+        "intent": "readonly",
+        "bounds": {
+          "x": 6.25,
+          "y": 71.2891,
+          "w": 39.5508,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": "HQ Address",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#BFE9D4"
+        }
+      }
+    ],
+    "regionHash": "94199ff67be63101c419cc2721e7b3d07a0c698a84fbce657b06319a23ed6e6c",
+    "regionBounds": {
+      "x": 6.25,
+      "y": 44.9219,
+      "w": 26.3672,
+      "h": 5.8594
+    }
+  },
+  "9144861c4ad33f6c3ad52cbfb752d26cc285f0861fd62fff2daae200c23d9631": {
+    "siml": "0.3",
+    "contentId": "siml-sample-banner",
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "s1",
+        "text": "ACME DESIGN STUDIO - PROMO",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 11.7188,
+          "w": 34.2773,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#D8C7FF"
+        }
+      },
+      {
+        "id": "s2",
+        "text": "Creative Layouts & Graphics",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 21.4844,
+          "w": 71.1914,
+          "h": 8.7891
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 30,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        }
+      },
+      {
+        "id": "s3",
+        "text": "+91 98765 43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 6.25,
+          "y": 44.9219,
+          "w": 26.3672,
+          "h": 5.8594
+        },
+        "selectable": true,
+        "label": "Call support",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 20,
+          "weight": "medium",
+          "color": "#FFE6C2"
+        }
+      },
+      {
+        "id": "s4",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 6.25,
+          "y": 58.5938,
+          "w": 31.3477,
+          "h": 5.0781
+        },
+        "selectable": true,
+        "label": "Visit site",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 17,
+          "weight": "regular",
+          "color": "#C6E8FF"
+        }
+      },
+      {
+        "id": "s5",
+        "text": "123 Demo Street, Suite 456, SF",
+        "type": "address",
+        "intent": "readonly",
+        "bounds": {
+          "x": 6.25,
+          "y": 71.2891,
+          "w": 39.5508,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": "HQ Address",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#BFE9D4"
+        }
+      }
+    ],
+    "regionHash": "94199ff67be631018419cc2721e7b3d07a0c698b84fbce657b06319a23ed6e6c",
+    "regionBounds": {
+      "x": 6.25,
+      "y": 44.9219,
+      "w": 26.3672,
+      "h": 5.8594
+    }
+  }
+}

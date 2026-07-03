@@ -129,6 +129,11 @@ function rgbToY(rgba, width, height) {
   return Y
 }
 
+// Dual-band decode constants - MUST match siml-writer/src/watermark.js
+const TEXTURE_DECODE_STDDEV = 3  // textured-attempt include threshold (guard band)
+const TEXTURE_EMBED_STDDEV = 8   // dual-band classifier threshold
+const Q_SMOOTH = 13              // smooth-band quantizer
+
 function extractWatermark(rgba, width, height, payloadByteLength = 16) {
   try {
     const Y = rgbToY(rgba, width, height)
@@ -137,47 +142,73 @@ function extractWatermark(rgba, width, height, payloadByteLength = 16) {
 
     const rsByteLen = payloadByteLength + 2 + RS_NSYM     // payload + CRC(2) + parity(RS_NSYM)
     const bitLength = 16 + rsByteLen * 8                  // sync(16) + RS-coded bits
-    const softVotes = new Float64Array(bitLength)
 
-    const block = new Float32Array(64)
-    let bitIndex = 0
+    function blockStd(block) {
+      let m = 0
+      for (let i = 0; i < 64; i++) m += block[i]
+      m /= 64
+      let v = 0
+      for (let i = 0; i < 64; i++) { const d = block[i] - m; v += d * d }
+      return Math.sqrt(v / 64)
+    }
 
-    for (let by = 0; by < blocksY; by++) {
-      for (let bx = 0; bx < blocksX; bx++) {
-        for (let x = 0; x < 8; x++)
-          for (let y = 0; y < 8; y++)
-            block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
+    // Three attempts, each gated by sync + RS + CRC (fail-loud): textured
+    // blocks only, then dual-band (per-block quantizer by the embedder's
+    // texture classifier), then legacy full coverage. Positional bit
+    // assignment means classification flips cost votes, never a desync.
+    // MUST match siml-writer/src/watermark.js.
+    function attempt(strategy) {
+      const softVotes = new Float64Array(bitLength)
+      const block = new Float32Array(64)
 
-        const dct = dct2d(block)
-        const c = dct[2 * 8 + 1]
-        // QIM levels every Q, bit in the level's parity (MUST match the writer
-        // and the Python reference; Q/2-spaced levels halve the margin).
-        const nearEven = 2 * Math.round(c / (2 * Q)) * Q
-        const nearOdd  = (2 * Math.round((c - Q) / (2 * Q)) + 1) * Q
-        softVotes[bitIndex % bitLength] += (Math.abs(c - nearOdd) - Math.abs(c - nearEven))
-        bitIndex++
+      for (let by = 0; by < blocksY; by++) {
+        for (let bx = 0; bx < blocksX; bx++) {
+          for (let x = 0; x < 8; x++)
+            for (let y = 0; y < 8; y++)
+              block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
+
+          let q = Q
+          if (strategy !== 'full') {
+            const sd = blockStd(block)
+            if (strategy === 'textured') {
+              if (sd < TEXTURE_DECODE_STDDEV) continue
+            } else {
+              q = sd >= TEXTURE_EMBED_STDDEV ? Q : Q_SMOOTH
+            }
+          }
+
+          const dct = dct2d(block)
+          const c = dct[2 * 8 + 1]
+          // QIM levels every q, bit in the level's parity (MUST match writer).
+          const nearEven = 2 * Math.round(c / (2 * q)) * q
+          const nearOdd  = (2 * Math.round((c - q) / (2 * q)) + 1) * q
+          // Positional bit assignment - MUST match the embedder.
+          softVotes[(by * blocksX + bx) % bitLength] += (Math.abs(c - nearOdd) - Math.abs(c - nearEven))
+        }
       }
+
+      const bits = Array.from(softVotes, v => v < 0 ? 1 : 0)
+      let sync = 0
+      for (let i = 0; i < 16; i++) sync = (sync << 1) | bits[i]
+      if (sync !== SYNC_TAG) return null
+
+      const rsCoded = new Array(rsByteLen)
+      for (let i = 0; i < rsByteLen; i++) {
+        let v = 0; for (let b = 0; b < 8; b++) v = (v << 1) | bits[16 + i*8 + b]
+        rsCoded[i] = v
+      }
+
+      const decoded = rsDecodeInline(rsCoded, RS_NSYM)
+      if (!decoded) return null
+
+      const payload = decoded.slice(0, payloadByteLength)
+      const extractedCRC = (decoded[payloadByteLength] << 8) | decoded[payloadByteLength + 1]
+      if (extractedCRC !== crc16(payload)) return null
+
+      return payload
     }
 
-    const bits = Array.from(softVotes, v => v < 0 ? 1 : 0)
-    let sync = 0
-    for (let i = 0; i < 16; i++) sync = (sync << 1) | bits[i]
-    if (sync !== SYNC_TAG) return null
-
-    const rsCoded = new Array(rsByteLen)
-    for (let i = 0; i < rsByteLen; i++) {
-      let v = 0; for (let b = 0; b < 8; b++) v = (v << 1) | bits[16 + i*8 + b]
-      rsCoded[i] = v
-    }
-
-    const decoded = rsDecodeInline(rsCoded, RS_NSYM)
-    if (!decoded) return null
-
-    const payload = decoded.slice(0, payloadByteLength)
-    const extractedCRC = (decoded[payloadByteLength] << 8) | decoded[payloadByteLength + 1]
-    if (extractedCRC !== crc16(payload)) return null
-
-    return payload
+    return attempt('textured') || attempt('dual') || attempt('full')
   } catch (e) {
     return null
   }

@@ -118,6 +118,9 @@ async function main() {
   // Merge stray entries into the central registry database at packages/siml-demo/.siml-registry.json
   const stray = path.join(DEMO_PUBLIC, 'siml-registry.json')
   const dbPath = path.resolve(__dirname, '../../siml-demo/.siml-registry.json')
+  // Also write the committed seed the /api/registry route bundles, so the
+  // deployed demo resolves the samples via T2 out of the box.
+  const seedPath = path.resolve(__dirname, '../../siml-demo/seed-registry.json')
   if (fs.existsSync(stray)) {
     let strayEntries = {}
     try { strayEntries = JSON.parse(fs.readFileSync(stray, 'utf8')) } catch (e) {}
@@ -129,6 +132,7 @@ async function main() {
     
     Object.assign(db, strayEntries)
     fs.writeFileSync(dbPath, JSON.stringify(db, null, 2))
+    fs.writeFileSync(seedPath, JSON.stringify(db, null, 2))
     console.log(`✓ Registered ${Object.keys(strayEntries).length} fingerprints to ${path.basename(dbPath)}`)
     fs.unlinkSync(stray)
   }
