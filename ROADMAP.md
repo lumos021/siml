@@ -7,8 +7,10 @@ test pinning it.
 ## Now: launch (2026 Q3)
 
 - [x] Public repo, CC0, clean history
-- [x] T1 watermark restored to the validated reference recipe (Q-level QIM,
-      RS restore fix, clipping passes; floors pinned in C-T1-04..06)
+- [x] T1 watermark restored and upgraded to dual-band QIM (RS restore fix,
+      quantizer fix, clipping passes, textured placement + half-strength smooth
+      band; 46.7-49 dB with q30 + WebP q90 passing on all measured content
+      classes; floors pinned in C-T1-04..06)
 - [ ] Deploy demo (Vercel) + registry endpoint on a persistent store
 - [ ] Register the spec domain; samples registered in the HTTP registry
 - [ ] Publish `siml-writer` / `siml-reader` to npm
@@ -24,8 +26,9 @@ glyph positions. Prototype working (`scripts/verify-ocr-prototype.js`).
 - [ ] Shorter verify stream (drop inner CRC16, truncated SHA-256): target
       2.4-3x per-bit redundancy vs direct mode
 - [ ] Writer: `payloadMode: "verify"` behind an explicit flag
-- [ ] Reader/demo: tesseract.js stage in the resolution order with the
-      tightest-window position contract
+- [x] Demo: tesseract.js verify stage in the resolution order with the
+      tightest-window position contract (validated through a real WhatsApp
+      forward); reader-lib port still pending
 - [ ] Confusion model from OCR per-symbol confidences
 - [ ] Conformance suite `V-*` pinning the verify floor
 - [ ] Ratify into SIML-SPEC-v0.4
@@ -35,8 +38,8 @@ glyph positions. Prototype working (`scripts/verify-ocr-prototype.js`).
 - [ ] Decoder candidate-width search (spec §4.3 already permits it) so
       platform resizes cannot desync the canonical grid
 - [ ] Digit packing for phone payloads (roughly half the direct-mode stream)
-- [ ] WebP robustness research (current honest floor: q90+; WebP's 4x4
-      transform is hostile to 8x8 QIM - may need a WebP-aligned variant)
+- [ ] WebP below q90 (q90 now passes on all measured classes via dual-band;
+      deeper WebP floors may need a WebP-aligned variant)
 - [ ] CLI: `--watermark` / `--register` flags
 - [ ] Editor: multi-line text model with per-line runs
 

@@ -43,7 +43,7 @@ A reader tries them in fidelity order - **T0 → T1 → T2 → OCR/visible-text 
 
 **Honesty rule baked into the project:** "survives social media / screenshots" is a **T2** capability (it needs the registry). The offline configuration (T0 + T1) is described as "survives re-encode and moderate downscale" - never "survives anything."
 
-The Tier-1 reference watermark (`siml_watermark.py`) is measured at ~46 dB PSNR (visually negligible) and recovers a phone number cleanly through JPEG q30+, high-quality WebP (q90+), double-compression, and screenshot-style transforms. Under aggressive downscale + recompression the signal is genuinely gone - so it **fails loudly** (a CRC rejects bad reads) rather than returning a wrong number, and hands off to T2.
+The Tier-1 reference watermark (`siml_watermark.py`) is measured at 46.7-49 dB PSNR across content classes (dual-band placement keeps smooth areas byte-untouched or at a visually clean half-strength) and recovers a phone number cleanly through JPEG q30+, high-quality WebP (q90+), double-compression, and screenshot-style transforms. Under aggressive downscale + recompression the signal is genuinely gone - so it **fails loudly** (a CRC rejects bad reads) rather than returning a wrong number, and hands off to T2.
 
 ---
 

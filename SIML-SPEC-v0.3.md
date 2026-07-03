@@ -98,9 +98,10 @@ v0.3 replaces it with a precise contract:
 - **T0 is lossless.** Writing the container never alters a pixel. An image with
   only T0 is bit-identical in its raster to the un-watermarked original.
 - **T1 is lossy-but-imperceptible.** Writing the watermark perturbs luminance.
-  Measured PSNR in the reference embed is ~46 dB (§4.6, smoothness-masked margin-band QIM) - visually negligible on
-  typical banner content; flat regions are the worst case for visibility and are
-  handled by step choice, not adaptive masking (see the §4.4 caution).
+  Measured PSNR in the reference embed is 46.7-49.0 dB across content classes
+  (§4.6, dual-band placement) - visually negligible: smooth regions (the
+  historical worst case) are either byte-untouched or carry the half-strength
+  band (see the §4.4 dual-band note).
 - **T2 is lossless.** The fingerprint is *computed from* the image; it does not
   change it. Only the registry entry is written.
 
@@ -219,8 +220,10 @@ present, readers/writers use the first in reading order and SHOULD warn.
 
 Two reference builds were measured. The **production reference**
 (`siml_watermark.py`: fixed-step QIM + soft-decision + RS + CRC) supersedes the
-earlier spike; numbers below are from it (1024×512, Q≈26, smoothness-masked margin-band QIM (guaranteed decode margin 18, 12 in
-smooth blocks), ~46 dB PSNR, phone-number payload). "Decoded" means the CRC validated - a failed CRC returns nothing rather
+earlier spike; numbers below are from it (1024×512, dual-band placement:
+textured blocks Q=26 margin-band 18, smooth blocks Q=13 exact-snap or
+byte-untouched, 46.7-49.0 dB PSNR measured across photo/sky/flyer/banner
+classes, phone-number payload). "Decoded" means the CRC validated - a failed CRC returns nothing rather
 than a wrong value.
 
 | Channel transform | Result |
@@ -228,7 +231,7 @@ than a wrong value.
 | No attack | ✅ decoded |
 | **JPEG q30**, q40, q60 | ✅ decoded *(q30 floor - improved over the spike's q40)* |
 | **Double** JPEG | ✅ decoded |
-| WebP | ✅ decoded at q90+ on designed banner/graphic content; content-dependent on photographic content (always a loud reject, never a wrong value) |
+| WebP | ✅ decoded at q90 across all measured content classes (dual-band); below q90 content-dependent (always a loud reject, never a wrong value) |
 | Screenshot-style (downscale 0.85 + noise + q70) | ✅ decoded |
 | Downscale **only** → renormalize to canonical | ✅ to ~480px width; degrades by ~400px |
 | Downscale **+ recompression** | content-dependent below full size (structured banners may survive to ~900px) → loud CRC reject, **never a wrong number**; that region is T2's job |
