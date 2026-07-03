@@ -397,7 +397,18 @@ function selectT1Payload(textLayer, contentId) {
     buf.write(contentId, 'utf8')
     return { payload: buf, payloadMode: 'id' }
   }
-  // Neither the value nor a usable id fits → skip T1 (T0/T2 still apply).
+  // The selected field cannot be carried at all (long primary + no usable id):
+  // fall through to the first actionable field that FITS before giving up -
+  // carrying the phone beats carrying nothing. Never truncate.
+  const fallback = layer.find(o => o && o !== chosen &&
+    (o.intent || 'actionable') === 'actionable' &&
+    ['phone', 'email', 'url', 'address'].includes(o.type) && fits(o.text))
+  if (fallback) {
+    const buf = Buffer.alloc(T1_CAPACITY)
+    buf.write(fallback.text, 'utf8')
+    return { payload: buf, payloadMode: 'direct' }
+  }
+  // Nothing carriable → skip T1 (T0/T2 still apply).
   return null
 }
 

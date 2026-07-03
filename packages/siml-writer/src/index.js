@@ -101,7 +101,8 @@ async function write({ imagePath, definition, outputPath, format = 'auto', embed
   // Determine carrier path (handles T1 watermarking temp path)
   let carrierPath = imagePath
   let tempCarrierPath = null
-  const contentId = definition.contentId || `siml-${Date.now()}`
+  // base36 keeps the generated id within T1's 16-byte capacity (id-mode fallback)
+  const contentId = definition.contentId || `siml-${Date.now().toString(36)}`
 
   // §4.5.1: select the one field T1 carries (primary → actionable → skip),
   // never truncating. Done before the resize so we can honor "skip T1".

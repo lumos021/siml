@@ -45,6 +45,11 @@ function selectT1Payload(
   if (!chosen) return null;
   if (fits(chosen.text)) return { value: chosen.text, mode: "direct" };
   if (fits(contentId)) return { value: contentId, mode: "id" };
+  // Long primary + no usable id: carry the first actionable field that fits
+  // instead of skipping (mirrors siml-writer). Never truncate.
+  const fallback = els.find((e) => e !== chosen &&
+    (e.intent || "actionable") === "actionable" && ACTIONABLE_TYPES.has(e.type) && fits(e.text));
+  if (fallback) return { value: fallback.text, mode: "direct" };
   return null;
 }
 
@@ -810,7 +815,8 @@ export default function CreatePage() {
       }
 
       const imgData = ctx.getImageData(0, 0, 1024, 512);
-      const contentId = `siml-${Date.now()}`;
+      // base36 keeps the id within T1's 16-byte capacity (id-mode fallback)
+      const contentId = `siml-${Date.now().toString(36)}`;
 
       // 4. Tier 1: select the one field T1 carries (spec §4.5.1 - primary →
       // actionable → skip), never truncating. Overflow falls back to id mode.
@@ -830,6 +836,12 @@ export default function CreatePage() {
         const sel = selectT1Payload(elements, contentId);
         if (t1VerifyMode && !chosen) {
           showToast("Verify mode needs an actionable field (phone/url/email/address) - falling back to direct mode.", "error");
+        }
+        if (!t1VerifyMode && !sel) {
+          const anyActionable = elements.some((e) => (e.intent || "actionable") === "actionable" && ACTIONABLE_TYPES.has(e.type));
+          showToast(anyActionable
+            ? "T1 SKIPPED: no field fits the 16-byte watermark capacity. Shorten the primary field or add a phone element."
+            : "T1 SKIPPED: this layer has NO phone/url/email/address element - there is nothing for the watermark to carry. Add a phone element (type: phone).", "error");
         }
         if (t1VerifyMode && chosen) {
           const norm = normalizeForVerify(chosen.type, chosen.text);
