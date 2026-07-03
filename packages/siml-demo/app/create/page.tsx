@@ -1253,6 +1253,19 @@ export default function CreatePage() {
                       Watermark this field <span style={{ color: "var(--text-muted)" }}>(primary - what T1 embeds; one per image)</span>
                     </label>
                   </div>
+                  {(() => {
+                    const el = elements.find(e => e.id === selectedId)!;
+                    const bytes = new TextEncoder().encode(el.text).length;
+                    if (!el.primary) return null;
+                    return (
+                      <p style={{ fontSize: "0.6875rem", marginTop: "0.25rem", lineHeight: 1.4,
+                        color: bytes > T1_CAPACITY ? "#fbbf24" : "var(--text-muted)" }}>
+                        {bytes <= T1_CAPACITY
+                          ? `${bytes}/${T1_CAPACITY} bytes: fits the watermark, recoverable fully OFFLINE.`
+                          : `${bytes}/${T1_CAPACITY} bytes: too long for the offline watermark (values are never truncated). The watermark will carry a compact id instead, and the full text is recovered via the registry (T2, network) - or shorten this field to ${T1_CAPACITY} bytes for offline recovery.`}
+                      </p>
+                    );
+                  })()}
 
                   <button className="btn btn-secondary btn-danger btn-sm" style={{ width: "100%", marginTop: "1rem" }} onClick={deleteSelectedElement}>
                     Delete Element
