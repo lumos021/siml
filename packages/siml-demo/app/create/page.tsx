@@ -53,6 +53,12 @@ function selectT1Payload(
   return null;
 }
 
+function nextPrime(n: number): number {
+  const isP = (k: number) => { for (let d = 2; d * d <= k; d++) if (k % d === 0) return false; return k > 1; };
+  while (!isP(n)) n++;
+  return n;
+}
+
 const SYNC_TAG = 0xD4B3;
 const CANONICAL_WIDTH = 1024;
 const Q = 26;
@@ -60,6 +66,7 @@ const QIM_MARGIN = 18; // guaranteed decode margin; MUST match siml-writer
 // Placement thresholds and dual-band smooth quantizer - MUST match siml-writer
 const TEXTURE_EMBED_STDDEV = 8;
 const MIN_TEXTURED_REPS = 8;
+const MIN_POSITION_VOTES = 4; // MUST match siml-writer
 const Q_SMOOTH = 13;
 const RS_NSYM = 4;  // Reed-Solomon parity symbols (matches writer/rs.js)
 
@@ -168,6 +175,8 @@ function embedWatermarkClient(rgba: Uint8ClampedArray, width: number, height: nu
   const bits: number[] = [];
   for (let i = 0; i < 16; i++) bits.push((SYNC_TAG >> (15 - i)) & 1);
   for (const byte of rsCoded) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1);
+  // Prime-padded stream: full positional coverage (MUST match siml-writer).
+  while (bits.length < nextPrime(bits.length)) bits.push(0);
 
   // TEXTURED-ONLY PLACEMENT (MUST match siml-writer): smooth blocks (skies,
   // gradients) stay byte-untouched when the image has enough textured blocks
@@ -190,7 +199,12 @@ function embedWatermarkClient(rgba: Uint8ClampedArray, width: number, height: nu
       if (Math.sqrt(v / 64) >= TEXTURE_EMBED_STDDEV) { mask[by * blocksX + bx] = 1; eligible++; }
     }
   }
-  const selective = eligible >= MIN_TEXTURED_REPS * bits.length;
+  // Minimum per-position coverage, not just average (MUST match siml-writer).
+  const posVotes = new Uint32Array(bits.length);
+  for (let i = 0; i < mask.length; i++) if (mask[i]) posVotes[i % bits.length]++;
+  let minVotes = Infinity;
+  for (let i = 0; i < bits.length; i++) if (posVotes[i] < minVotes) minVotes = posVotes[i];
+  const selective = eligible >= MIN_TEXTURED_REPS * bits.length && minVotes >= MIN_POSITION_VOTES;
   if (!selective) {
     // dual-band: every unmarked block becomes a half-strength smooth carrier
     for (let i = 0; i < mask.length; i++) if (!mask[i]) mask[i] = 2;
@@ -223,7 +237,7 @@ function embedPassClient(rgba: Uint8ClampedArray, width: number, height: number,
           block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)];
 
       const dct = dct2d(block);
-      const targetBit = bits[blockIndex % bitLength]; // positional assignment
+      const targetBit = bits[blockIndex % bitLength]; // prime-length stream: full coverage
       const coeffVal = dct[2 * 8 + 1];
       // Full band: margin-band QIM on Q-spaced levels. Smooth band: exact snap
       // on Q_SMOOTH levels (half amplitude, visually clean, messaging-grade

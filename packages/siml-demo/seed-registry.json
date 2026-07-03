@@ -1,123 +1,4 @@
 {
-  "9144861c4ad33f6c3a952cbfb752d26cc285d0861fde2fff2daae200da3d9630": {
-    "siml": "0.3",
-    "contentId": "siml-sample-banner",
-    "permissions": {
-      "platformCanDisableSelection": true,
-      "platformCanDisableLinks": true,
-      "platformCanDisableAll": false
-    },
-    "textLayer": [
-      {
-        "id": "s1",
-        "text": "ACME DESIGN STUDIO - PROMO",
-        "type": "text",
-        "intent": "auto",
-        "bounds": {
-          "x": 6.25,
-          "y": 11.7188,
-          "w": 34.2773,
-          "h": 4.4922
-        },
-        "selectable": true,
-        "label": null,
-        "style": {
-          "font": "Courier New, Courier, monospace",
-          "size": 15,
-          "weight": "regular",
-          "color": "#D8C7FF"
-        }
-      },
-      {
-        "id": "s2",
-        "text": "Creative Layouts & Graphics",
-        "type": "text",
-        "intent": "auto",
-        "bounds": {
-          "x": 6.25,
-          "y": 21.4844,
-          "w": 71.1914,
-          "h": 8.7891
-        },
-        "selectable": true,
-        "label": null,
-        "style": {
-          "font": "Courier New, Courier, monospace",
-          "size": 30,
-          "weight": "bold",
-          "color": "#FFFFFF"
-        }
-      },
-      {
-        "id": "s3",
-        "text": "+91 98765 43210",
-        "type": "phone",
-        "intent": "actionable",
-        "primary": true,
-        "bounds": {
-          "x": 6.25,
-          "y": 44.9219,
-          "w": 26.3672,
-          "h": 5.8594
-        },
-        "selectable": true,
-        "label": "Call support",
-        "style": {
-          "font": "Courier New, Courier, monospace",
-          "size": 20,
-          "weight": "medium",
-          "color": "#FFE6C2"
-        }
-      },
-      {
-        "id": "s4",
-        "text": "https://siml-spec.org",
-        "type": "url",
-        "intent": "actionable",
-        "bounds": {
-          "x": 6.25,
-          "y": 58.5938,
-          "w": 31.3477,
-          "h": 5.0781
-        },
-        "selectable": true,
-        "label": "Visit site",
-        "style": {
-          "font": "Courier New, Courier, monospace",
-          "size": 17,
-          "weight": "regular",
-          "color": "#C6E8FF"
-        }
-      },
-      {
-        "id": "s5",
-        "text": "123 Demo Street, Suite 456, SF",
-        "type": "address",
-        "intent": "readonly",
-        "bounds": {
-          "x": 6.25,
-          "y": 71.2891,
-          "w": 39.5508,
-          "h": 4.4922
-        },
-        "selectable": true,
-        "label": "HQ Address",
-        "style": {
-          "font": "Courier New, Courier, monospace",
-          "size": 15,
-          "weight": "regular",
-          "color": "#BFE9D4"
-        }
-      }
-    ],
-    "regionHash": "94199ff67be63101c419cc2721e7b3d07a0c698a84fbce657b06319a23ed6e6c",
-    "regionBounds": {
-      "x": 6.25,
-      "y": 44.9219,
-      "w": 26.3672,
-      "h": 5.8594
-    }
-  },
   "9144861c4ad33f6c3a952cbfb752d26cc285f0861fd62fff2daae200da3d9630": {
     "siml": "0.3",
     "contentId": "siml-sample-banner",
@@ -349,6 +230,1708 @@
       }
     ],
     "regionHash": "94199ff67be631018419cc2721e7b3d07a0c698b84fbce657b06319a23ed6e6c",
+    "regionBounds": {
+      "x": 6.25,
+      "y": 44.9219,
+      "w": 26.3672,
+      "h": 5.8594
+    }
+  },
+  "9f3b43ce2877280174c0258726025e7d2ca7d7ff77cfa53e0308d3198114bfba": {
+    "siml": "0.3",
+    "contentId": "siml-1783005987381",
+    "pixelDigest": "9f3b43ce2877280174c0258726025e7d2ca7d7ff77cfa53e0308d3198114bfba",
+    "regionHash": "83b4b46d43ead435f05f0ba739a4bb845cb1c6dbd45b07c82d4aa45a875a875a",
+    "regionBounds": {
+      "x": 17.99,
+      "y": 36.04,
+      "w": 65.27,
+      "h": 14.36
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "Continental heights",
+        "type": "text",
+        "primary": true,
+        "bounds": {
+          "x": 17.99,
+          "y": 36.04,
+          "w": 65.27,
+          "h": 14.36
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 17.99,
+              "y": 36.04,
+              "w": 65.27,
+              "h": 14.36
+            },
+            "text": "Continental heights"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 49,
+          "weight": "bold",
+          "color": "#fbbf24"
+        },
+        "selectable": true,
+        "label": null
+      }
+    ]
+  },
+  "9144861c4ad33f6c3a952cbfb752d26cc285d0861fd62fff2daae200da3d9634": {
+    "siml": "0.3",
+    "contentId": "siml-sample-banner",
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "s1",
+        "text": "ACME DESIGN STUDIO - PROMO",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 11.7188,
+          "w": 34.2773,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#D8C7FF"
+        }
+      },
+      {
+        "id": "s2",
+        "text": "Creative Layouts & Graphics",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 21.4844,
+          "w": 71.1914,
+          "h": 8.7891
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 30,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        }
+      },
+      {
+        "id": "s3",
+        "text": "+91 98765 43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 6.25,
+          "y": 44.9219,
+          "w": 26.3672,
+          "h": 5.8594
+        },
+        "selectable": true,
+        "label": "Call support",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 20,
+          "weight": "medium",
+          "color": "#FFE6C2"
+        }
+      },
+      {
+        "id": "s4",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 6.25,
+          "y": 58.5938,
+          "w": 31.3477,
+          "h": 5.0781
+        },
+        "selectable": true,
+        "label": "Visit site",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 17,
+          "weight": "regular",
+          "color": "#C6E8FF"
+        }
+      },
+      {
+        "id": "s5",
+        "text": "123 Demo Street, Suite 456, SF",
+        "type": "address",
+        "intent": "readonly",
+        "bounds": {
+          "x": 6.25,
+          "y": 71.2891,
+          "w": 39.5508,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": "HQ Address",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#BFE9D4"
+        }
+      }
+    ],
+    "regionHash": "94199ff47be63109c419cc2721e7b3d07a0c698a84fbce657b06319a23ed6e6c",
+    "regionBounds": {
+      "x": 6.25,
+      "y": 44.9219,
+      "w": 26.3672,
+      "h": 5.8594
+    }
+  },
+  "9144861c4ad33f6c3ad52cbfb752d26cc285d0861fd62fff2daae200da3d9630": {
+    "siml": "0.3",
+    "contentId": "siml-sample-banner",
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "s1",
+        "text": "ACME DESIGN STUDIO - PROMO",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 11.7188,
+          "w": 34.2773,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#D8C7FF"
+        }
+      },
+      {
+        "id": "s2",
+        "text": "Creative Layouts & Graphics",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 21.4844,
+          "w": 71.1914,
+          "h": 8.7891
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 30,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        }
+      },
+      {
+        "id": "s3",
+        "text": "+91 98765 43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 6.25,
+          "y": 44.9219,
+          "w": 26.3672,
+          "h": 5.8594
+        },
+        "selectable": true,
+        "label": "Call support",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 20,
+          "weight": "medium",
+          "color": "#FFE6C2"
+        }
+      },
+      {
+        "id": "s4",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 6.25,
+          "y": 58.5938,
+          "w": 31.3477,
+          "h": 5.0781
+        },
+        "selectable": true,
+        "label": "Visit site",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 17,
+          "weight": "regular",
+          "color": "#C6E8FF"
+        }
+      },
+      {
+        "id": "s5",
+        "text": "123 Demo Street, Suite 456, SF",
+        "type": "address",
+        "intent": "readonly",
+        "bounds": {
+          "x": 6.25,
+          "y": 71.2891,
+          "w": 39.5508,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": "HQ Address",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#BFE9D4"
+        }
+      }
+    ],
+    "regionHash": "94199ff67be63101c419cc2721e7b3d07a0c698a84fbce657b06319a23ed6e6c",
+    "regionBounds": {
+      "x": 6.25,
+      "y": 44.9219,
+      "w": 26.3672,
+      "h": 5.8594
+    }
+  },
+  "9144861c4ad33f6c3a952cbfb752d26cc285f0861fd62fff2daae200c23d9671": {
+    "siml": "0.3",
+    "contentId": "siml-sample-banner",
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "s1",
+        "text": "ACME DESIGN STUDIO - PROMO",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 11.7188,
+          "w": 34.2773,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#D8C7FF"
+        }
+      },
+      {
+        "id": "s2",
+        "text": "Creative Layouts & Graphics",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 21.4844,
+          "w": 71.1914,
+          "h": 8.7891
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 30,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        }
+      },
+      {
+        "id": "s3",
+        "text": "+91 98765 43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 6.25,
+          "y": 44.9219,
+          "w": 26.3672,
+          "h": 5.8594
+        },
+        "selectable": true,
+        "label": "Call support",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 20,
+          "weight": "medium",
+          "color": "#FFE6C2"
+        }
+      },
+      {
+        "id": "s4",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 6.25,
+          "y": 58.5938,
+          "w": 31.3477,
+          "h": 5.0781
+        },
+        "selectable": true,
+        "label": "Visit site",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 17,
+          "weight": "regular",
+          "color": "#C6E8FF"
+        }
+      },
+      {
+        "id": "s5",
+        "text": "123 Demo Street, Suite 456, SF",
+        "type": "address",
+        "intent": "readonly",
+        "bounds": {
+          "x": 6.25,
+          "y": 71.2891,
+          "w": 39.5508,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": "HQ Address",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#BFE9D4"
+        }
+      }
+    ],
+    "regionHash": "94199ff67be63109c419cc2721e7b3d07a0c698a84fbce657b04319a23ed6e6c",
+    "regionBounds": {
+      "x": 6.25,
+      "y": 44.9219,
+      "w": 26.3672,
+      "h": 5.8594
+    }
+  },
+  "89c6e69bbb1119e666f85d003647938fe3b7c879d8b077c23f80260da1fc8aa5": {
+    "siml": "0.3",
+    "contentId": "siml-1783010130520",
+    "pixelDigest": "89c6e69bbb1119e666f85d003647938fe3b7c879d8b077c23f80260da1fc8aa5",
+    "regionHash": "a002dffc3f9f8040d8352fce317e49212cdce393944e69b8b77393466cf89c07",
+    "regionBounds": {
+      "x": 10,
+      "y": 18,
+      "w": 20.32,
+      "h": 10.55
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "new text",
+        "type": "text",
+        "bounds": {
+          "x": 10,
+          "y": 18,
+          "w": 20.32,
+          "h": 10.55
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 18,
+              "w": 20.32,
+              "h": 10.55
+            },
+            "text": "new text"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 36,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        },
+        "selectable": true,
+        "label": null
+      }
+    ]
+  },
+  "9720da2768cfa5586ad42de007369a5f95c9e0ade1721e1e2e8f25e02fc61a5f": {
+    "siml": "0.3",
+    "contentId": "siml-1783010908188",
+    "pixelDigest": "9720da2768cfa5586ad42de007369a5f95c9e0ade1721e1e2e8f25e02fc61a5f",
+    "regionHash": "824478a167de1decdc53e6537c3be653dc7315ec675e79a11520788127581d2c",
+    "regionBounds": {
+      "x": 10,
+      "y": 18,
+      "w": 71.66,
+      "h": 10.55
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "SIML v0.3 Premium Designer",
+        "type": "text",
+        "primary": true,
+        "bounds": {
+          "x": 10,
+          "y": 18,
+          "w": 71.66,
+          "h": 10.55
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 18,
+              "w": 71.66,
+              "h": 10.55
+            },
+            "text": "SIML v0.3 Premium Designer"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 36,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        },
+        "selectable": true,
+        "label": null
+      }
+    ]
+  },
+  "e49bc8995b37eee23f957362a5cc512797cccd6452db8cc82cdc074a399d0780": {
+    "siml": "0.3",
+    "contentId": "siml-1783011111279",
+    "pixelDigest": "e49bc8995b37eee23f957362a5cc512797cccd6452db8cc82cdc074a399d0780",
+    "regionHash": "c9925f324bbe3364be64f364f20af364be6433644fbb50f24cda48324b2ab264",
+    "regionBounds": {
+      "x": 10,
+      "y": 18,
+      "w": 71.66,
+      "h": 10.55
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "SIML v0.3 Premium Designer",
+        "type": "text",
+        "primary": true,
+        "bounds": {
+          "x": 10,
+          "y": 18,
+          "w": 71.66,
+          "h": 10.55
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 18,
+              "w": 71.66,
+              "h": 10.55
+            },
+            "text": "SIML v0.3 Premium Designer"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 36,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        },
+        "selectable": true,
+        "label": null
+      },
+      {
+        "id": "e2",
+        "text": "+91-98765-43210",
+        "type": "phone",
+        "intent": "actionable",
+        "bounds": {
+          "x": 10,
+          "y": 50,
+          "w": 22.79,
+          "h": 5.27
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 50,
+              "w": 22.79,
+              "h": 5.27
+            },
+            "text": "+91-98765-43210"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 18,
+          "weight": "medium",
+          "color": "#2dd4a8"
+        },
+        "selectable": true,
+        "label": "Call Agent"
+      },
+      {
+        "id": "e3",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 10,
+          "y": 65,
+          "w": 23.2,
+          "h": 4.69
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 65,
+              "w": 23.2,
+              "h": 4.69
+            },
+            "text": "https://siml-spec.org"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 16,
+          "weight": "normal",
+          "color": "#6c63ff"
+        },
+        "selectable": true,
+        "label": "Visit Docs"
+      }
+    ]
+  },
+  "9144861c4ad33f6c3a952cbfb752d26cc285d0861fde2fff2daae200da3d9630": {
+    "siml": "0.3",
+    "contentId": "siml-sample-banner",
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "s1",
+        "text": "ACME DESIGN STUDIO - PROMO",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 11.7188,
+          "w": 34.2773,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#D8C7FF"
+        }
+      },
+      {
+        "id": "s2",
+        "text": "Creative Layouts & Graphics",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 21.4844,
+          "w": 71.1914,
+          "h": 8.7891
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 30,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        }
+      },
+      {
+        "id": "s3",
+        "text": "+91 98765 43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 6.25,
+          "y": 44.9219,
+          "w": 26.3672,
+          "h": 5.8594
+        },
+        "selectable": true,
+        "label": "Call support",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 20,
+          "weight": "medium",
+          "color": "#FFE6C2"
+        }
+      },
+      {
+        "id": "s4",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 6.25,
+          "y": 58.5938,
+          "w": 31.3477,
+          "h": 5.0781
+        },
+        "selectable": true,
+        "label": "Visit site",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 17,
+          "weight": "regular",
+          "color": "#C6E8FF"
+        }
+      },
+      {
+        "id": "s5",
+        "text": "123 Demo Street, Suite 456, SF",
+        "type": "address",
+        "intent": "readonly",
+        "bounds": {
+          "x": 6.25,
+          "y": 71.2891,
+          "w": 39.5508,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": "HQ Address",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#BFE9D4"
+        }
+      }
+    ],
+    "regionHash": "94199ff67be63109c419cc2721e7b3d07a0c698a84fb8e657b06319a23ed6e6c",
+    "regionBounds": {
+      "x": 6.25,
+      "y": 44.9219,
+      "w": 26.3672,
+      "h": 5.8594
+    }
+  },
+  "d037d035728d2dca2d622fe02f30d225d02dd09dc09fd6963ed22dda3fc82f69": {
+    "siml": "0.3",
+    "contentId": "siml-1783012381363",
+    "pixelDigest": "d037d035728d2dca2d622fe02f30d225d02dd09dc09fd6963ed22dda3fc82f69",
+    "regionHash": "9491ed6f553114b1392b55b921ba23a841ec63aa63aac346cb4ecf56de56de50",
+    "regionBounds": {
+      "x": 10,
+      "y": 18,
+      "w": 71.66,
+      "h": 10.55
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "SIML v0.3 Premium Designer",
+        "type": "text",
+        "bounds": {
+          "x": 10,
+          "y": 18,
+          "w": 71.66,
+          "h": 10.55
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 18,
+              "w": 71.66,
+              "h": 10.55
+            },
+            "text": "SIML v0.3 Premium Designer"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 36,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        },
+        "selectable": true,
+        "label": null
+      }
+    ]
+  },
+  "99a5e61ade4f59632d84a7987658da23542689259e3ae9da21a73f902769d2ce": {
+    "siml": "0.3",
+    "contentId": "siml-1783012546207",
+    "pixelDigest": "99a5e61ade4f59632d84a7987658da23542689259e3ae9da21a73f902769d2ce",
+    "regionHash": "90bdd6ac3eabb3a98188ad0f24fa96167a047bc7949184d96d6cc5363d8b3369",
+    "regionBounds": {
+      "x": 10,
+      "y": 50,
+      "w": 22.79,
+      "h": 5.27
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "SIML v0.3 Premium Designer",
+        "type": "text",
+        "bounds": {
+          "x": 10,
+          "y": 18,
+          "w": 71.66,
+          "h": 10.55
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 18,
+              "w": 71.66,
+              "h": 10.55
+            },
+            "text": "SIML v0.3 Premium Designer"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 36,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        },
+        "selectable": true,
+        "label": null
+      },
+      {
+        "id": "e2",
+        "text": "+91-98765-43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 10,
+          "y": 50,
+          "w": 22.79,
+          "h": 5.27
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 50,
+              "w": 22.79,
+              "h": 5.27
+            },
+            "text": "+91-98765-43210"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 18,
+          "weight": "medium",
+          "color": "#2dd4a8"
+        },
+        "selectable": true,
+        "label": "Call Agent"
+      },
+      {
+        "id": "e3",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 10,
+          "y": 65,
+          "w": 23.2,
+          "h": 4.69
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 65,
+              "w": 23.2,
+              "h": 4.69
+            },
+            "text": "https://siml-spec.org"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 16,
+          "weight": "normal",
+          "color": "#6c63ff"
+        },
+        "selectable": true,
+        "label": "Visit Docs"
+      }
+    ]
+  },
+  "9144861c4ad33f6c3ad52cbfb752d26cc285f0861fd42fff2daae200da3d9630": {
+    "siml": "0.3",
+    "contentId": "siml-sample-banner",
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "s1",
+        "text": "ACME DESIGN STUDIO - PROMO",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 11.7188,
+          "w": 34.2773,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#D8C7FF"
+        }
+      },
+      {
+        "id": "s2",
+        "text": "Creative Layouts & Graphics",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 21.4844,
+          "w": 71.1914,
+          "h": 8.7891
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 30,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        }
+      },
+      {
+        "id": "s3",
+        "text": "+91 98765 43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 6.25,
+          "y": 44.9219,
+          "w": 26.3672,
+          "h": 5.8594
+        },
+        "selectable": true,
+        "label": "Call support",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 20,
+          "weight": "medium",
+          "color": "#FFE6C2"
+        }
+      },
+      {
+        "id": "s4",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 6.25,
+          "y": 58.5938,
+          "w": 31.3477,
+          "h": 5.0781
+        },
+        "selectable": true,
+        "label": "Visit site",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 17,
+          "weight": "regular",
+          "color": "#C6E8FF"
+        }
+      },
+      {
+        "id": "s5",
+        "text": "123 Demo Street, Suite 456, SF",
+        "type": "address",
+        "intent": "readonly",
+        "bounds": {
+          "x": 6.25,
+          "y": 71.2891,
+          "w": 39.5508,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": "HQ Address",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#BFE9D4"
+        }
+      }
+    ],
+    "regionHash": "94199ff67be63101c419cc2721e7b3d07a0c698b84fb8e657b06319a23ed6e6c",
+    "regionBounds": {
+      "x": 6.25,
+      "y": 44.9219,
+      "w": 26.3672,
+      "h": 5.8594
+    }
+  },
+  "99c6ec39b23919ac66f94c4212499f9a63674c1cd862d5cbbfa4424fa5f8db84": {
+    "siml": "0.3",
+    "contentId": "siml-1783013862254",
+    "pixelDigest": "99c6ec39b23919ac66f94c4212499f9a63674c1cd862d5cbbfa4424fa5f8db84",
+    "regionHash": "851ba00c7be73204c519e04e0cfb96fc7b217b8684d99edb4924f5b763413bcb",
+    "regionBounds": {
+      "x": 38.3,
+      "y": 19.04,
+      "w": 22.79,
+      "h": 5.27
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e2",
+        "text": "+91-98765-43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 38.3,
+          "y": 19.04,
+          "w": 22.79,
+          "h": 5.27
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 38.3,
+              "y": 19.04,
+              "w": 22.79,
+              "h": 5.27
+            },
+            "text": "+91-98765-43210"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 18,
+          "weight": "medium",
+          "color": "#2dd4a8"
+        },
+        "selectable": true,
+        "label": "Call Agent"
+      }
+    ]
+  },
+  "c067be9cb37840b12dc076e32bddd90bd0148e81d37f4ea07b522dc220d9ddbb": {
+    "siml": "0.3",
+    "contentId": "siml-1783014612403",
+    "pixelDigest": "c067be9cb37840b12dc076e32bddd90bd0148e81d37f4ea07b522dc220d9ddbb",
+    "regionHash": "81cbfc6555c70aeffe2aaa8a7c80006c800180ca6f6a7dad6b6bbac997ed4576",
+    "regionBounds": {
+      "x": 10,
+      "y": 50,
+      "w": 22.79,
+      "h": 5.27
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "SIML v0.3 Premium Designer",
+        "type": "text",
+        "bounds": {
+          "x": 10,
+          "y": 18,
+          "w": 71.66,
+          "h": 10.55
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 18,
+              "w": 71.66,
+              "h": 10.55
+            },
+            "text": "SIML v0.3 Premium Designer"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 36,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        },
+        "selectable": true,
+        "label": null
+      },
+      {
+        "id": "e2",
+        "text": "+91-98765-43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 10,
+          "y": 50,
+          "w": 22.79,
+          "h": 5.27
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 50,
+              "w": 22.79,
+              "h": 5.27
+            },
+            "text": "+91-98765-43210"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 18,
+          "weight": "medium",
+          "color": "#2dd4a8"
+        },
+        "selectable": true,
+        "label": "Call Agent"
+      },
+      {
+        "id": "e3",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 10,
+          "y": 65,
+          "w": 23.2,
+          "h": 4.69
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 65,
+              "w": 23.2,
+              "h": 4.69
+            },
+            "text": "https://siml-spec.org"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 16,
+          "weight": "normal",
+          "color": "#6c63ff"
+        },
+        "selectable": true,
+        "label": "Visit Docs"
+      }
+    ]
+  },
+  "98c6e439b63139ac6ef16dc213c9959ed277c01dd82263db3fe02b4325f0db84": {
+    "siml": "0.3",
+    "contentId": "siml-1783014740578",
+    "pixelDigest": "98c6e439b63139ac6ef16dc213c9959ed277c01dd82263db3fe02b4325f0db84",
+    "regionHash": "b870fa3f27f8814c99c5fe13f41a7a3391c5034c27f8fa720b4c7e3a27f88144",
+    "regionBounds": {
+      "x": 10,
+      "y": 18,
+      "w": 71.66,
+      "h": 10.55
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "SIML v0.3 Premium Designer",
+        "type": "text",
+        "primary": true,
+        "bounds": {
+          "x": 10,
+          "y": 18,
+          "w": 71.66,
+          "h": 10.55
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 18,
+              "w": 71.66,
+              "h": 10.55
+            },
+            "text": "SIML v0.3 Premium Designer"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 36,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        },
+        "selectable": true,
+        "label": null
+      },
+      {
+        "id": "e2",
+        "text": "+91-98765-43210",
+        "type": "phone",
+        "intent": "actionable",
+        "bounds": {
+          "x": 10,
+          "y": 50,
+          "w": 22.79,
+          "h": 5.27
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 50,
+              "w": 22.79,
+              "h": 5.27
+            },
+            "text": "+91-98765-43210"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 18,
+          "weight": "medium",
+          "color": "#2dd4a8"
+        },
+        "selectable": true,
+        "label": "Call Agent"
+      },
+      {
+        "id": "e3",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 10,
+          "y": 65,
+          "w": 23.2,
+          "h": 4.69
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 65,
+              "w": 23.2,
+              "h": 4.69
+            },
+            "text": "https://siml-spec.org"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 16,
+          "weight": "normal",
+          "color": "#6c63ff"
+        },
+        "selectable": true,
+        "label": "Visit Docs"
+      }
+    ]
+  },
+  "8c389c7cfa83018f67c22ae935f4904eb7395415ca3f31c47c472bb00fc175fe": {
+    "siml": "0.3",
+    "contentId": "siml-1783016877807",
+    "pixelDigest": "8c389c7cfa83018f67c22ae935f4904eb7395415ca3f31c47c472bb00fc175fe",
+    "regionHash": "9c1ce5c323eb83c6c1e5fe397c3afe31c1e5a3c446a9e1c3412f564366ca81c6",
+    "regionBounds": {
+      "x": 10,
+      "y": 18,
+      "w": 71.66,
+      "h": 10.55
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "SIML v0.3 Premium Designer",
+        "type": "text",
+        "primary": true,
+        "bounds": {
+          "x": 10,
+          "y": 18,
+          "w": 71.66,
+          "h": 10.55
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 18,
+              "w": 71.66,
+              "h": 10.55
+            },
+            "text": "SIML v0.3 Premium Designer"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 36,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        },
+        "selectable": true,
+        "label": null
+      },
+      {
+        "id": "e2",
+        "text": "+91-98765-43210",
+        "type": "phone",
+        "intent": "actionable",
+        "bounds": {
+          "x": 10,
+          "y": 50,
+          "w": 22.79,
+          "h": 5.27
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 50,
+              "w": 22.79,
+              "h": 5.27
+            },
+            "text": "+91-98765-43210"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 18,
+          "weight": "medium",
+          "color": "#2dd4a8"
+        },
+        "selectable": true,
+        "label": "Call Agent"
+      },
+      {
+        "id": "e3",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 10,
+          "y": 65,
+          "w": 23.2,
+          "h": 4.69
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 65,
+              "w": 23.2,
+              "h": 4.69
+            },
+            "text": "https://siml-spec.org"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 16,
+          "weight": "normal",
+          "color": "#6c63ff"
+        },
+        "selectable": true,
+        "label": "Visit Docs"
+      }
+    ]
+  },
+  "99c6ec39b63119ac66f96c4232c9b79e62676c1cd822c1db9fb44a038df8db84": {
+    "siml": "0.3",
+    "contentId": "siml-1783017125554",
+    "pixelDigest": "99c6ec39b63119ac66f96c4232c9b79e62676c1cd822c1db9fb44a038df8db84",
+    "regionHash": "814039403ebf46bbc1589b4f38c27c8046bd86fb91c23b4d473d6cf939da93ce",
+    "regionBounds": {
+      "x": 35.08,
+      "y": 13.35,
+      "w": 27.04,
+      "h": 5.86
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e2",
+        "text": "+91-98765-43210",
+        "type": "phone",
+        "intent": "actionable",
+        "bounds": {
+          "x": 10,
+          "y": 50,
+          "w": 22.79,
+          "h": 5.27
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 50,
+              "w": 22.79,
+              "h": 5.27
+            },
+            "text": "+91-98765-43210"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 18,
+          "weight": "medium",
+          "color": "#2dd4a8"
+        },
+        "selectable": true,
+        "label": "Call Agent"
+      },
+      {
+        "id": "e4",
+        "text": "Double-click to edit",
+        "type": "text",
+        "primary": true,
+        "bounds": {
+          "x": 35.08,
+          "y": 13.35,
+          "w": 27.04,
+          "h": 5.86
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 35.08,
+              "y": 13.35,
+              "w": 27.04,
+              "h": 5.86
+            },
+            "text": "Double-click to edit"
+          }
+        ],
+        "style": {
+          "font": "Inter",
+          "size": 20,
+          "weight": "normal",
+          "color": "#FFFFFF"
+        },
+        "selectable": true,
+        "label": null
+      }
+    ]
+  },
+  "c32d8d69a924853956c64a7b73d0e11a35e0a6da38e0e39e9865d71ccd4ff4b8": {
+    "siml": "0.3",
+    "contentId": "siml-1783045105348",
+    "pixelDigest": "c32d8d69a924853956c64a7b73d0e11a35e0a6da38e0e39e9865d71ccd4ff4b8",
+    "regionHash": "dab58a95d0a5bc13772a8fc431e48ecc772a8c13d0a78a5556769ac5d0a5ba3b",
+    "regionBounds": {
+      "x": 10,
+      "y": 18,
+      "w": 71.66,
+      "h": 10.55
+    },
+    "image": {
+      "width": 1024,
+      "height": 512
+    },
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "e1",
+        "text": "SIML v0.3 Premium Designer",
+        "type": "text",
+        "primary": true,
+        "bounds": {
+          "x": 10,
+          "y": 18,
+          "w": 71.66,
+          "h": 10.55
+        },
+        "runs": [
+          {
+            "bounds": {
+              "x": 10,
+              "y": 18,
+              "w": 71.66,
+              "h": 10.55
+            },
+            "text": "SIML v0.3 Premium Designer"
+          }
+        ],
+        "style": {
+          "font": "Playfair Display",
+          "size": 36,
+          "weight": "bold",
+          "color": "#f87171"
+        },
+        "selectable": true,
+        "label": null
+      }
+    ]
+  },
+  "9144861c4ad33f6c3a952cbfb752d26cc285f0861fde2fff2daae200c23d9631": {
+    "siml": "0.3",
+    "contentId": "siml-sample-banner",
+    "permissions": {
+      "platformCanDisableSelection": true,
+      "platformCanDisableLinks": true,
+      "platformCanDisableAll": false
+    },
+    "textLayer": [
+      {
+        "id": "s1",
+        "text": "ACME DESIGN STUDIO - PROMO",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 11.7188,
+          "w": 34.2773,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#D8C7FF"
+        }
+      },
+      {
+        "id": "s2",
+        "text": "Creative Layouts & Graphics",
+        "type": "text",
+        "intent": "auto",
+        "bounds": {
+          "x": 6.25,
+          "y": 21.4844,
+          "w": 71.1914,
+          "h": 8.7891
+        },
+        "selectable": true,
+        "label": null,
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 30,
+          "weight": "bold",
+          "color": "#FFFFFF"
+        }
+      },
+      {
+        "id": "s3",
+        "text": "+91 98765 43210",
+        "type": "phone",
+        "intent": "actionable",
+        "primary": true,
+        "bounds": {
+          "x": 6.25,
+          "y": 44.9219,
+          "w": 26.3672,
+          "h": 5.8594
+        },
+        "selectable": true,
+        "label": "Call support",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 20,
+          "weight": "medium",
+          "color": "#FFE6C2"
+        }
+      },
+      {
+        "id": "s4",
+        "text": "https://siml-spec.org",
+        "type": "url",
+        "intent": "actionable",
+        "bounds": {
+          "x": 6.25,
+          "y": 58.5938,
+          "w": 31.3477,
+          "h": 5.0781
+        },
+        "selectable": true,
+        "label": "Visit site",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 17,
+          "weight": "regular",
+          "color": "#C6E8FF"
+        }
+      },
+      {
+        "id": "s5",
+        "text": "123 Demo Street, Suite 456, SF",
+        "type": "address",
+        "intent": "readonly",
+        "bounds": {
+          "x": 6.25,
+          "y": 71.2891,
+          "w": 39.5508,
+          "h": 4.4922
+        },
+        "selectable": true,
+        "label": "HQ Address",
+        "style": {
+          "font": "Courier New, Courier, monospace",
+          "size": 15,
+          "weight": "regular",
+          "color": "#BFE9D4"
+        }
+      }
+    ],
+    "regionHash": "94199ff67be63101c419cc2721e7b3d07a0c698b84fb8e657b06319a23ed6e6c",
     "regionBounds": {
       "x": 6.25,
       "y": 44.9219,

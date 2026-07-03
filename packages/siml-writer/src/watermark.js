@@ -20,7 +20,8 @@ const QIM_MARGIN = Number(process.env.SIML_QIM_MARGIN ?? 18)
 // positional), so a borderline block costs one vote, never a desync.
 const TEXTURE_EMBED_STDDEV = 8
 const TEXTURE_DECODE_STDDEV = 3
-const MIN_TEXTURED_REPS = 8 // below this redundancy, switch to dual-band coverage
+const MIN_TEXTURED_REPS = 8 // average redundancy floor for textured-only placement
+const MIN_POSITION_VOTES = 4 // AND every bit position must get at least this many textured votes
 // Dual-band fallback for low-texture images: smooth blocks embed at half
 // quantizer strength (exact snap on Q_SMOOTH-spaced levels - the visually
 // clean amplitude, measured JPEG floor ~q40, comfortably covering
@@ -146,6 +147,12 @@ function updateRGBWithY(rgba, Y, width, height) {
 // Per-block luminance standard deviation - the texture measure that drives
 // PLACEMENT (not step size; the step stays fixed, so the §4.4 adaptive-step
 // trap does not apply).
+function nextPrime (n) {
+  const isP = (k) => { for (let d = 2; d * d <= k; d++) if (k % d === 0) return false; return k > 1 }
+  while (!isP(n)) n++
+  return n
+}
+
 function blockStddev(Y, width, bx, by) {
   let mean = 0
   for (let x = 0; x < 8; x++)
@@ -172,6 +179,9 @@ function embedWatermark(rgba, width, height, payloadBytes) {
   const bits = []
   for (let i = 0; i < 16; i++) bits.push((SYNC_TAG >> (15 - i)) & 1)
   for (const byte of rsCoded) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1)
+  // Pad to a prime length: coprime to every row stride, so sequential
+  // assignment covers every position from every column and any image size.
+  while (bits.length < nextPrime(bits.length)) bits.push(0)
 
   // TEXTURED-ONLY PLACEMENT: smooth blocks (skies, gradients) are where the QIM
   // ripple is visible and the eye is most sensitive, so when the image has
@@ -197,7 +207,14 @@ function embedWatermark(rgba, width, height, payloadBytes) {
         mask[by * blocksX + bx] = 1
         eligible++
       }
-  const selective = eligible >= MIN_TEXTURED_REPS * bits.length
+  // Selective placement requires MINIMUM per-position coverage, not average:
+  // textured blocks cluster spatially, and a bit position with zero votes kills
+  // the whole decode no matter how many total blocks are marked.
+  const posVotes = new Uint32Array(bits.length)
+  for (let i = 0; i < mask.length; i++) if (mask[i]) posVotes[i % bits.length]++
+  let minVotes = Infinity
+  for (let i = 0; i < bits.length; i++) if (posVotes[i] < minVotes) minVotes = posVotes[i]
+  const selective = eligible >= MIN_TEXTURED_REPS * bits.length && minVotes >= MIN_POSITION_VOTES
   if (!selective) {
     // dual-band: every unmarked block becomes a smooth-band carrier
     for (let i = 0; i < mask.length; i++) if (!mask[i]) mask[i] = 2
@@ -233,8 +250,7 @@ function embedPass(rgba, width, height, bits, mask) {
           block[x * 8 + y] = Y[((by * 8 + x) * width) + (bx * 8 + y)]
 
       const dct = dct2d(block)
-      // Positional bit assignment - see embedWatermark.
-      const targetBit = bits[blockIndex % bitLength]
+      const targetBit = bits[blockIndex % bitLength] // prime-length stream: full coverage
       const coeffVal = dct[2 * 8 + 1]
       // Full band: margin-band QIM on Q-spaced levels (guaranteed margin).
       // Smooth band: exact snap on Q_SMOOTH-spaced levels (half amplitude,
@@ -283,7 +299,7 @@ function extractWatermark(rgba, width, height, payloadByteLength) {
 
   // RS-coded length: payload + 2 CRC bytes + RS_NSYM parity
   const rsByteLen = payloadByteLength + 2 + RS_NSYM
-  const bitLength = 16 + rsByteLen * 8          // sync + RS-coded bits
+  const bitLength = nextPrime(16 + rsByteLen * 8)  // sync + RS bits, prime-padded
 
   // Three attempts, each fully gated by sync + RS + CRC (the fail-loud oracle):
   // 1. 'textured' - textured blocks only at Q. Correct for textured-placement
@@ -321,7 +337,6 @@ function extractWatermark(rgba, width, height, payloadByteLength) {
         const nearOdd  = (2 * Math.round((c - q) / (2 * q)) + 1) * q   // nearest odd-parity level
         const dE = Math.abs(c - nearEven)
         const dO = Math.abs(c - nearOdd)
-        // Positional bit assignment - MUST match the embedder.
         softVotes[(by * blocksX + bx) % bitLength] += (dO - dE)
       }
     }

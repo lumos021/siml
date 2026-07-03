@@ -39,6 +39,12 @@ interface MetaJson {
 const SIML_UUID = new Uint8Array([
   0xDE, 0x60, 0x62, 0xE1, 0x9E, 0x7B, 0x49, 0x4E, 0x94, 0xB3, 0xDB, 0x6F, 0xCC, 0x25, 0x7F, 0xDC
 ]);
+function nextPrime(n: number): number {
+  const isP = (k: number) => { for (let d = 2; d * d <= k; d++) if (k % d === 0) return false; return k > 1; };
+  while (!isP(n)) n++;
+  return n;
+}
+
 const SYNC_TAG = 0xD4B3;
 const CANONICAL_WIDTH = 1024;
 const Q = 26;
@@ -165,7 +171,7 @@ function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: 
     const blocksX = Math.floor(width / 8);
     const blocksY = Math.floor(height / 8);
     const rsByteLen = payloadByteLength + 2 + RS_NSYM;
-    const bitLength = 16 + rsByteLen * 8;
+    const bitLength = nextPrime(16 + rsByteLen * 8); // prime-padded (MUST match siml-writer)
 
     // Three attempts, each gated by sync + RS + CRC (fail-loud): textured-only,
     // then dual-band (per-block quantizer by the embedder's classifier), then
@@ -200,7 +206,6 @@ function extractWatermarkClient(rgba: Uint8ClampedArray, width: number, height: 
           // QIM levels every q, bit in the level's parity (MUST match the writer).
           const nearEven = 2 * Math.round(c / (2 * q)) * q;
           const nearOdd = (2 * Math.round((c - q) / (2 * q)) + 1) * q;
-          // Positional bit assignment - MUST match the embedder.
           softVotes[(by * blocksX + bx) % bitLength] += (Math.abs(c - nearOdd) - Math.abs(c - nearEven));
         }
       }

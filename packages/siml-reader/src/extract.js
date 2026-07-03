@@ -130,6 +130,12 @@ function rgbToY(rgba, width, height) {
 }
 
 // Dual-band decode constants - MUST match siml-writer/src/watermark.js
+function nextPrime (n) {
+  const isP = (k) => { for (let d = 2; d * d <= k; d++) if (k % d === 0) return false; return k > 1 }
+  while (!isP(n)) n++
+  return n
+}
+
 const TEXTURE_DECODE_STDDEV = 3  // textured-attempt include threshold (guard band)
 const TEXTURE_EMBED_STDDEV = 8   // dual-band classifier threshold
 const Q_SMOOTH = 13              // smooth-band quantizer
@@ -141,7 +147,7 @@ function extractWatermark(rgba, width, height, payloadByteLength = 16) {
     const blocksY = Math.floor(height / 8)
 
     const rsByteLen = payloadByteLength + 2 + RS_NSYM     // payload + CRC(2) + parity(RS_NSYM)
-    const bitLength = 16 + rsByteLen * 8                  // sync(16) + RS-coded bits
+    const bitLength = nextPrime(16 + rsByteLen * 8)       // sync + RS bits, prime-padded
 
     function blockStd(block) {
       let m = 0
@@ -182,7 +188,6 @@ function extractWatermark(rgba, width, height, payloadByteLength = 16) {
           // QIM levels every q, bit in the level's parity (MUST match writer).
           const nearEven = 2 * Math.round(c / (2 * q)) * q
           const nearOdd  = (2 * Math.round((c - q) / (2 * q)) + 1) * q
-          // Positional bit assignment - MUST match the embedder.
           softVotes[(by * blocksX + bx) % bitLength] += (Math.abs(c - nearOdd) - Math.abs(c - nearEven))
         }
       }

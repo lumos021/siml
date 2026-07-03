@@ -41,11 +41,17 @@ function cRsEncode (data, nsym) {
   // missing restore was the bug that made every editor-embedded T1 undecodable).
   return [...data, ...msg.slice(data.length)]
 }
+function nextPrime (n) {
+  const isP = (k) => { for (let d = 2; d * d <= k; d++) if (k % d === 0) return false; return k > 1 }
+  while (!isP(n)) n++
+  return n
+}
 const SYNC_TAG = 0xD4B3
 const Q = 26
 const QIM_MARGIN = 18 // MUST match siml-writer
 const TEXTURE_EMBED_STDDEV = 8
 const MIN_TEXTURED_REPS = 8
+const MIN_POSITION_VOTES = 4
 const Q_SMOOTH = 13
 const RS_NSYM = 4
 const cosTable = new Float32Array(8 * 8)
@@ -99,6 +105,7 @@ function portEmbed (rgba, width, height, text) {
   const bits = []
   for (let i = 0; i < 16; i++) bits.push((SYNC_TAG >> (15 - i)) & 1)
   for (const byte of rsCoded) for (let i = 7; i >= 0; i--) bits.push((byte >> i) & 1)
+  while (bits.length < nextPrime(bits.length)) bits.push(0)
   const blocksX = Math.floor(width / 8)
   const blocksY = Math.floor(height / 8)
   const Y0 = new Float32Array(width * height)
@@ -115,7 +122,11 @@ function portEmbed (rgba, width, height, text) {
       if (Math.sqrt(v / 64) >= TEXTURE_EMBED_STDDEV) { mask[by * blocksX + bx] = 1; eligible++ }
     }
   }
-  const selective = eligible >= MIN_TEXTURED_REPS * bits.length
+  const posVotes = new Uint32Array(bits.length)
+  for (let i = 0; i < mask.length; i++) if (mask[i]) posVotes[i % bits.length]++
+  let minVotes = Infinity
+  for (let i = 0; i < bits.length; i++) if (posVotes[i] < minVotes) minVotes = posVotes[i]
+  const selective = eligible >= MIN_TEXTURED_REPS * bits.length && minVotes >= MIN_POSITION_VOTES
   if (!selective) {
     for (let i = 0; i < mask.length; i++) if (!mask[i]) mask[i] = 2
   }

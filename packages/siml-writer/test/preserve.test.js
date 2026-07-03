@@ -31,7 +31,13 @@ async function readerSees(buf) {
 beforeAll(async () => {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
   const baseImg = path.join(__dirname, '../../../AA24z3le.png')
-  if (fs.existsSync(baseImg)) fs.copyFileSync(baseImg, SAMPLE_PNG)
+  if (fs.existsSync(baseImg)) {
+    fs.copyFileSync(baseImg, SAMPLE_PNG)
+  } else {
+    // No local base image (CI): fall back to the committed real photo
+    // fixture the conformance suite already validates against.
+    await sharp(path.join(__dirname, '../scripts/sample_bg.png')).png().toFile(SAMPLE_PNG)
+  }
 })
 
 afterAll(() => {
