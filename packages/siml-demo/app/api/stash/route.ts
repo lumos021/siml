@@ -18,7 +18,7 @@ export async function OPTIONS () {
   return new NextResponse(null, { status: 204, headers: CORS })
 }
 
-type Entry = { bytes: Uint8Array; name: string; expires: number }
+type Entry = { bytes: Uint8Array; name: string; mime: string; expires: number }
 const STASH: Map<string, Entry> = (globalThis as { __simlStash?: Map<string, Entry> }).__simlStash
   ?? ((globalThis as { __simlStash?: Map<string, Entry> }).__simlStash = new Map())
 const TTL_MS = 5 * 60 * 1000
@@ -32,12 +32,14 @@ function sweep () {
 export async function POST (request: NextRequest) {
   sweep()
   const name = (request.nextUrl.searchParams.get('name') || 'design').replace(/[^\w.-]+/g, '-')
+  const mime = request.headers.get('content-type') || 'image/png'
+  const ext = mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png'
   const buf = new Uint8Array(await request.arrayBuffer())
   if (!buf.length || buf.length > MAX_BYTES) {
     return NextResponse.json({ error: 'empty or too large' }, { status: 400, headers: CORS })
   }
   const id = crypto.randomUUID()
-  STASH.set(id, { bytes: buf, name: `${name}.siml.png`, expires: Date.now() + TTL_MS })
+  STASH.set(id, { bytes: buf, name: `${name}.siml.${ext}`, mime, expires: Date.now() + TTL_MS })
   return NextResponse.json({ id }, { headers: CORS })
 }
 
@@ -53,7 +55,7 @@ export async function GET (request: NextRequest) {
     status: 200,
     headers: {
       ...CORS,
-      'Content-Type': 'image/png',
+      'Content-Type': entry.mime,
       'Content-Disposition': `attachment; filename="${entry.name}"`,
       'Cache-Control': 'no-store',
     },

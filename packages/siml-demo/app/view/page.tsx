@@ -1175,9 +1175,12 @@ export default function ViewPage() {
                     width: `${obj.bounds.w}%`,
                     height: `${obj.bounds.h}%`,
                     color: "transparent",
-                    background: showHighlight ? "rgba(108, 99, 255, 0.22)" : "transparent",
-                    border: showHighlight ? "1px solid rgba(108, 99, 255, 0.35)" : "none",
-                    borderRadius: "4px",
+                    // A single, subtle fill marks the selectable region. (No
+                    // separate border: box + border + the native ::selection
+                    // highlight together read as "multiple boxes" on a short
+                    // field - the fill alone is enough affordance.)
+                    background: showHighlight ? "rgba(108, 99, 255, 0.18)" : "transparent",
+                    borderRadius: "3px",
                     userSelect: "text",
                     cursor: isActionEnabled(obj) ? "pointer" : "text",
                     display: "flex",

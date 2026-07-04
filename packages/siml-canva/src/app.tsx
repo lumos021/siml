@@ -3,15 +3,21 @@
 // Design Editing API), exports the design as PNG (requestExport), embeds the
 // SIML tiers with the shared engine, and downloads the result.
 import { useState } from "react";
-import { Button, Rows, Text, Title, FormField, TextInput, Checkbox } from "@canva/app-ui-kit";
+import { Button, Rows, Text, Title, FormField, TextInput, Checkbox, Select } from "@canva/app-ui-kit";
 import { openDesign, requestExport, getDefaultPageDimensions } from "@canva/design";
 import { requestOpenExternalUrl } from "@canva/platform";
 import {
   embedWatermark, selectT1Payload, pHashOfCanvas, regionHashOf,
-  serializeJUMBF, injectPNG, ACTIONABLE,
+  serializeJUMBF, injectPNG, injectJPEG, ACTIONABLE,
 } from "../../siml-engine";
 import type { LayerObject } from "../../siml-engine";
 import * as styles from "styles/components.css";
+
+type Format = "png" | "jpeg";
+const FMT: Record<Format, { mime: string; ext: string }> = {
+  png: { mime: "image/png", ext: "png" },
+  jpeg: { mime: "image/jpeg", ext: "jpg" },
+};
 
 function inferType(text: string): string {
   const t = text.trim();
@@ -24,6 +30,7 @@ function inferType(text: string): string {
 export const App = () => {
   const [t1, setT1] = useState(true);
   const [t2, setT2] = useState(true);
+  const [format, setFormat] = useState<Format>("png");
   const [registry, setRegistry] = useState("https://siml-demo.vercel.app/api/registry");
   const [log, setLog] = useState<string[]>(["Open a design with text, then press Export."]);
   const [busy, setBusy] = useState(false);
@@ -148,6 +155,19 @@ export const App = () => {
 
       const contentId = "siml-" + Date.now().toString(36);
 
+      // T1 detection: the watermark carries ONE field, so we surface exactly
+      // which one and why. Priority: an element the author marked primary, else
+      // the first actionable field (phone > url > email > address in reading
+      // order) that fits 16 bytes. Multiple phones -> the first in reading
+      // order wins; the rest still live in T0 (full layer) and are logged.
+      const phones = layer.filter((o) => o.type === "phone");
+      const actionable = layer.filter((o) => ACTIONABLE.has(o.type));
+      if (phones.length > 1) {
+        say(`${phones.length} phone fields found; T1 will carry the first in reading order ("${phones[0]!.text}"). All ${layer.length} fields are preserved in the T0 layer.`);
+      } else if (actionable.length > 1) {
+        say(`${actionable.length} actionable fields found; T1 carries the highest-priority one that fits.`);
+      }
+
       let t1Mode: string | null = null;
       if (t1) {
         const sel = selectT1Payload(layer, contentId);
@@ -157,9 +177,9 @@ export const App = () => {
           const stat = embedWatermark(img.data, W, H, p);
           ctx.putImageData(img, 0, 0);
           t1Mode = sel.mode;
-          say(`T1 embedded (${sel.mode}, ${stat.placement} placement): "${sel.value}"`);
+          say(`T1 watermark: "${sel.value}" (${sel.mode} mode, ${stat.placement} placement).`);
         } else {
-          say("T1 skipped: no field fits the 16-byte watermark (add a phone text box).");
+          say("T1 skipped: no phone/url/email/address field fits the 16-byte watermark. T0 + T2 still preserve all text - add a short phone/url field to enable the offline watermark.");
         }
       }
 
@@ -202,9 +222,22 @@ export const App = () => {
         }
       }
 
-      const outBlob: Blob | null = await new Promise((r) => canvas.toBlob(r, "image/png"));
-      if (!outBlob) { say("PNG encode failed (canvas may be cross-origin tainted - add the export host to the app's Domains permission)."); return; }
-      const finalBytes = injectPNG(new Uint8Array(await outBlob.arrayBuffer()), serializeJUMBF(payload));
+      // Encode to the chosen format, then inject T0 into that container. JPEG
+      // uses q0.92 - high enough that the T1 watermark (which survives JPEG
+      // q30+) is unaffected, while T0 rides in an APP11 segment.
+      const fmt = FMT[format];
+      const q = format === "jpeg" ? 0.92 : undefined;
+      const outBlob: Blob | null = await new Promise((r) => canvas.toBlob(r, fmt.mime, q));
+      if (!outBlob) { say(`${format.toUpperCase()} encode failed (canvas may be cross-origin tainted - add the export host to the app's Domains permission).`); return; }
+      const encoded = new Uint8Array(await outBlob.arrayBuffer());
+      const jumbf = serializeJUMBF(payload);
+      let finalBytes: Uint8Array;
+      try {
+        finalBytes = format === "jpeg" ? injectJPEG(encoded, jumbf) : injectPNG(encoded, jumbf);
+      } catch (e) {
+        say(`Could not write the ${format.toUpperCase()} container (${(e as Error).message}). Try PNG.`);
+        return;
+      }
 
       // Canva's sandbox closes every LOCAL download path (programmatic <a>
       // click, data: URL, LinkButton) - requestOpenExternalUrl accepts https:
@@ -221,7 +254,7 @@ export const App = () => {
       try {
         const res = await fetch(`${origin}/api/stash?name=design`, {
           method: "POST",
-          headers: { "Content-Type": "image/png" },
+          headers: { "Content-Type": fmt.mime },
           body: finalBytes.buffer as ArrayBuffer,
         });
         if (!res.ok) { say(`Could not prepare the download (HTTP ${res.status}).`); return; }
@@ -246,10 +279,25 @@ export const App = () => {
       <Rows spacing="2u">
         <Title size="small">Export with SIML</Title>
         <Text size="small">
-          Exports this design as a PNG whose text stays selectable, copyable, and
-          machine-readable, surviving re-compression and messaging apps. The first
-          phone number found is carried in an invisible pixel watermark.
+          Exports this design as an image whose text stays selectable, copyable,
+          and machine-readable, surviving re-compression and messaging apps.
+          Every text field is preserved; the first actionable field (a phone
+          number, if any) is also carried in an invisible pixel watermark.
         </Text>
+        <FormField
+          label="Format"
+          value={format}
+          control={(props) => (
+            <Select
+              {...props}
+              options={[
+                { value: "png", label: "PNG (lossless)" },
+                { value: "jpeg", label: "JPEG (smaller file)" },
+              ]}
+              onChange={(v) => setFormat(v as Format)}
+            />
+          )}
+        />
         <Checkbox
           checked={t1}
           onChange={(_, checked) => setT1(checked)}
