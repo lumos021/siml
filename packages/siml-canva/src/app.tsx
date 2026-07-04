@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { Button, Rows, Text, Title, FormField, TextInput, Checkbox } from "@canva/app-ui-kit";
 import { openDesign, requestExport, getDefaultPageDimensions } from "@canva/design";
+import { requestOpenExternalUrl } from "@canva/platform";
 import {
   embedWatermark, selectT1Payload, pHashOfCanvas, regionHashOf,
   serializeJUMBF, injectPNG, ACTIONABLE,
@@ -204,16 +205,41 @@ export const App = () => {
       const outBlob: Blob | null = await new Promise((r) => canvas.toBlob(r, "image/png"));
       if (!outBlob) { say("PNG encode failed (canvas may be cross-origin tainted - add the export host to the app's Domains permission)."); return; }
       const finalBytes = injectPNG(new Uint8Array(await outBlob.arrayBuffer()), serializeJUMBF(payload));
-      const url = URL.createObjectURL(new Blob([finalBytes.buffer as ArrayBuffer], { type: "image/png" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "design.siml.png";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
 
-      say(`Done. Written tiers: T0${t1Mode ? ` + T1 (${t1Mode})` : ""}${t2 ? " + T2" : ""}`);
+      // Canva's sandboxed iframe blocks programmatic <a download>, and asset
+      // upload would re-encode the PNG (destroying the T0 chunk). So we stash
+      // the byte-exact file on the registry origin and open its download URL
+      // via Canva's approved external-URL flow.
+      say(`Done. Written tiers: T0${t1Mode ? ` + T1 (${t1Mode})` : ""}${t2 ? " + T2" : ""}. Preparing download...`);
+      const origin = (() => { try { return new URL(registry.trim()).origin; } catch { return ""; } })();
+      let delivered = false;
+      if (origin) {
+        try {
+          const res = await fetch(`${origin}/api/stash?name=design`, {
+            method: "POST",
+            headers: { "Content-Type": "image/png" },
+            body: finalBytes.buffer as ArrayBuffer,
+          });
+          if (res.ok) {
+            const { id } = await res.json();
+            const dl = `${origin}/api/stash?id=${id}`;
+            const open = await requestOpenExternalUrl({ url: dl });
+            if (open.status === "completed") { delivered = true; say(`Download opened in a new tab: ${dl}`); }
+            else say("Download was not opened (dismissed).");
+          } else {
+            say(`Could not prepare the download (HTTP ${res.status}).`);
+          }
+        } catch {
+          say("Could not reach the download service.");
+        }
+      }
+      if (!delivered) {
+        // Offline fallback: emit a data-URL the user can open manually.
+        const b64 = btoa(String.fromCharCode(...finalBytes));
+        say("Copy this link into a new browser tab to download the file:");
+        say(`data:image/png;base64,${b64.length > 120 ? b64.slice(0, 60) + "...(truncated in log; the full data URL is very long - use the registry download instead)" : b64}`);
+        say("Tip: set the Registry URL above to a reachable SIML server so the download opens automatically.");
+      }
     } catch (err) {
       say("Failed: " + (err as Error).message);
     } finally {

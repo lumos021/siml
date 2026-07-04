@@ -74,6 +74,25 @@ Without the Canva export domain, the app runs the whole pipeline but the
 download silently fails (cross-origin canvas taint); the app now reports this
 explicitly in its log instead of finishing with no file.
 
+## How the download works (important)
+
+Canva's sandboxed app iframe **blocks programmatic downloads** (`<a download>`
+navigation is refused), and uploading via the asset API would re-encode the
+PNG and destroy the SIML container. So the app delivers the finished file by:
+
+1. POSTing the byte-exact SIML PNG to the SIML server's `/api/stash` endpoint
+   (short-lived, single-use), which returns a token.
+2. Opening `/<origin>/api/stash?id=<token>` via Canva's approved
+   `requestOpenExternalUrl` flow. The browser downloads the file normally.
+
+This means the **Registry URL field must point at a reachable SIML server**
+(your `npm run dev` on `http://localhost:3000`, or the deployed demo), because
+that same origin serves the stash download. If the server is unreachable the
+app logs a manual-download fallback instead.
+
+You must allow this navigation: in the Developer Portal add the registry
+origin to the app's permitted external URLs / domains.
+
 ## Notes and limits (v1)
 
 - Text geometry comes from `openDesign` on the current page (absolute pages
