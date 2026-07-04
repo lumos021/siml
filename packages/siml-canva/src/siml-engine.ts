@@ -1,3 +1,7 @@
+// @ts-nocheck - verbatim port of the validated siml-writer engine
+// (verified byte-identical by scripts/compare-embedders.js in the SIML
+// repo); the starter kit's noUncheckedIndexedAccess would require
+// assertions in every DSP hot loop for no safety gain here.
 // SIML embedding engine - verbatim port of the validated siml-writer code
 // (dual-band QIM watermark, prime-padded stream, RS + CRC fail-loud, JUMBF
 // container, 256-bit pHash + 5.3.1 region hash). Host-agnostic: the same

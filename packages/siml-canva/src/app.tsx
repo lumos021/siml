@@ -2,16 +2,15 @@
 // Reads the current page's text elements (exact strings + geometry via the
 // Design Editing API), exports the design as PNG (requestExport), embeds the
 // SIML tiers with the shared engine, and downloads the result.
-//
-// Drop this file (and siml-engine.ts) into Canva's apps-sdk-starter-kit `src/`
-// - see the package README for the exact setup steps.
-import React, { useState } from "react";
+import { useState } from "react";
 import { Button, Rows, Text, Title, FormField, TextInput, Checkbox } from "@canva/app-ui-kit";
-import { openDesign, requestExport } from "@canva/design";
+import { openDesign, requestExport, getDefaultPageDimensions } from "@canva/design";
 import {
   embedWatermark, selectT1Payload, pHashOfCanvas, regionHashOf,
-  serializeJUMBF, injectPNG, ACTIONABLE, LayerObject,
-} from "./siml-engine";
+  serializeJUMBF, injectPNG, ACTIONABLE,
+} from "../../siml-engine";
+import type { LayerObject } from "../../siml-engine";
+import * as styles from "styles/components.css";
 
 function inferType(text: string): string {
   const t = text.trim();
@@ -21,7 +20,7 @@ function inferType(text: string): string {
   return "text";
 }
 
-export function App() {
+export const App = () => {
   const [t1, setT1] = useState(true);
   const [t2, setT2] = useState(true);
   const [registry, setRegistry] = useState("http://localhost:3000/api/registry");
@@ -29,19 +28,28 @@ export function App() {
   const [busy, setBusy] = useState(false);
   const say = (m: string) => setLog((l) => [...l, m]);
 
-  async function readLayer(): Promise<{ layer: LayerObject[]; pageW: number; pageH: number } | null> {
-    let result: { layer: LayerObject[]; pageW: number; pageH: number } | null = null;
+  async function readLayer(): Promise<LayerObject[] | null> {
+    let layer: LayerObject[] | null = null;
     await openDesign({ type: "current_page" }, async (session) => {
-      const page = session.page as {
-        type?: string;
-        dimensions?: { width: number; height: number };
-        elements: Iterable<{ type: string; top: number; left: number; width: number; height: number; text?: { readPlaintext(): string } }>;
-      };
-      if (page.type && page.type !== "absolute") return; // unsupported page kind
-      const els = Array.from(page.elements);
-      // Page dimensions when exposed; else the union of element extents.
-      let pageW = page.dimensions?.width ?? 0;
-      let pageH = page.dimensions?.height ?? 0;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const page = session.page as any;
+      if (!page || !page.elements) return; // unsupported page kind
+
+      const els: {
+        type: string; top: number; left: number; width: number; height: number;
+        text?: { readPlaintext(): string };
+      }[] = [];
+      page.elements.forEach((e: (typeof els)[number]) => els.push(e));
+
+      // Page dimensions when exposed; else Canva's default page size; else the
+      // union of element extents.
+      let pageW: number = page.dimensions?.width ?? 0;
+      let pageH: number = page.dimensions?.height ?? 0;
+      if (!pageW || !pageH) {
+        const dims = await getDefaultPageDimensions();
+        pageW = dims?.width ?? 0;
+        pageH = dims?.height ?? 0;
+      }
       if (!pageW || !pageH) {
         for (const e of els) {
           pageW = Math.max(pageW, e.left + e.width);
@@ -51,7 +59,7 @@ export function App() {
       if (!pageW || !pageH) return;
 
       let sawPrimary = false;
-      const layer: LayerObject[] = [];
+      const out: LayerObject[] = [];
       let i = 0;
       for (const e of els) {
         if (e.type !== "text" || !e.text) continue;
@@ -59,7 +67,7 @@ export function App() {
         if (!text) continue;
         const type = inferType(text);
         const primary = !sawPrimary && type === "phone" ? (sawPrimary = true) : false;
-        layer.push({
+        out.push({
           id: "t" + ++i,
           text,
           type,
@@ -73,10 +81,10 @@ export function App() {
           },
         });
       }
-      layer.sort((a, b) => a.bounds.y - b.bounds.y || a.bounds.x - b.bounds.x);
-      result = { layer, pageW, pageH };
+      out.sort((a, b) => a.bounds.y - b.bounds.y || a.bounds.x - b.bounds.x);
+      layer = out;
     });
-    return result;
+    return layer;
   }
 
   async function run() {
@@ -84,22 +92,26 @@ export function App() {
     setLog([]);
     try {
       say("Reading text elements from the design...");
-      const read = await readLayer();
-      if (!read) { say("Could not read this page (unsupported page type)."); return; }
-      say(`Found ${read.layer.length} text element(s).`);
+      const layer = await readLayer();
+      if (!layer) { say("Could not read this page (unsupported page type)."); return; }
+      say(`Found ${layer.length} text element(s).`);
 
       say("Requesting PNG export (complete the export dialog)...");
       const exp = await requestExport({ acceptedFileTypes: ["png"] });
       if (exp.status !== "completed") { say("Export cancelled."); return; }
-      const blob = await (await fetch(exp.exportBlobs[0].url)).blob();
+      const first = exp.exportBlobs[0];
+      if (!first) { say("Export returned no files."); return; }
+      const blob = await (await fetch(first.url)).blob();
 
       // Canonical grid: width 1024, height rounded to the 8-pixel block grid.
       const bmp = await createImageBitmap(blob);
       const W = 1024;
       const H = Math.max(8, Math.round(((bmp.height / bmp.width) * W) / 8) * 8);
       const canvas = document.createElement("canvas");
-      canvas.width = W; canvas.height = H;
-      const ctx = canvas.getContext("2d")!;
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { say("Canvas unavailable."); return; }
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(bmp, 0, 0, W, H);
@@ -109,7 +121,7 @@ export function App() {
 
       let t1Mode: string | null = null;
       if (t1) {
-        const sel = selectT1Payload(read.layer, contentId);
+        const sel = selectT1Payload(layer, contentId);
         if (sel) {
           const p = new Uint8Array(16);
           p.set(new TextEncoder().encode(sel.value));
@@ -123,7 +135,7 @@ export function App() {
       }
 
       const pixelDigest = pHashOfCanvas(canvas);
-      const textLayer = read.layer.map((o) => ({
+      const textLayer = layer.map((o) => ({
         ...o,
         primary: o.primary || undefined,
         runs: [{ bounds: o.bounds, text: o.text }],
@@ -131,7 +143,9 @@ export function App() {
         label: null,
       }));
       const payload = {
-        siml: "0.3", contentId, pixelDigest,
+        siml: "0.3",
+        contentId,
+        pixelDigest,
         binding: { t0: true, t1: !!t1Mode, t2, ...(t1Mode ? { payloadMode: t1Mode, canonicalWidth: W } : {}) },
         image: { width: W, height: H },
         permissions: { platformCanDisableSelection: true, platformCanDisableLinks: true, platformCanDisableAll: false },
@@ -159,9 +173,10 @@ export function App() {
         }
       }
 
-      const outBlob: Blob = await new Promise((r) => canvas.toBlob((b) => r(b!), "image/png"));
+      const outBlob: Blob | null = await new Promise((r) => canvas.toBlob(r, "image/png"));
+      if (!outBlob) { say("PNG encode failed."); return; }
       const finalBytes = injectPNG(new Uint8Array(await outBlob.arrayBuffer()), serializeJUMBF(payload));
-      const url = URL.createObjectURL(new Blob([finalBytes], { type: "image/png" }));
+      const url = URL.createObjectURL(new Blob([finalBytes.buffer as ArrayBuffer], { type: "image/png" }));
       const a = document.createElement("a");
       a.href = url;
       a.download = "design.siml.png";
@@ -179,24 +194,34 @@ export function App() {
   }
 
   return (
-    <Rows spacing="2u">
-      <Title size="small">Export with SIML</Title>
-      <Text size="small">
-        Exports this design as a PNG whose text stays selectable, copyable, and
-        machine-readable, surviving re-compression and messaging apps. The first
-        phone number found is carried in an invisible pixel watermark.
-      </Text>
-      <Checkbox checked={t1} onChange={(_, v) => setT1(v)} label="T1 pixel watermark (offline recovery; imperceptible pixel change)" />
-      <Checkbox checked={t2} onChange={(_, v) => setT2(v)} label="T2 registry fingerprint (screenshot-grade recovery; needs the registry)" />
-      <FormField
-        label="Registry URL"
-        value={registry}
-        control={(props) => <TextInput {...props} onChange={setRegistry} />}
-      />
-      <Button variant="primary" onClick={run} loading={busy} stretch>
-        Export with SIML
-      </Button>
-      <Text size="xsmall" tone="tertiary">{log.join("\n")}</Text>
-    </Rows>
+    <div className={styles.scrollContainer}>
+      <Rows spacing="2u">
+        <Title size="small">Export with SIML</Title>
+        <Text size="small">
+          Exports this design as a PNG whose text stays selectable, copyable, and
+          machine-readable, surviving re-compression and messaging apps. The first
+          phone number found is carried in an invisible pixel watermark.
+        </Text>
+        <Checkbox
+          checked={t1}
+          onChange={(_, checked) => setT1(checked)}
+          label="T1 pixel watermark (offline recovery; imperceptible pixel change)"
+        />
+        <Checkbox
+          checked={t2}
+          onChange={(_, checked) => setT2(checked)}
+          label="T2 registry fingerprint (screenshot-grade recovery; needs the registry)"
+        />
+        <FormField
+          label="Registry URL"
+          value={registry}
+          control={(props) => <TextInput {...props} onChange={setRegistry} />}
+        />
+        <Button variant="primary" onClick={run} disabled={busy} stretch>
+          {busy ? "Working..." : "Export with SIML"}
+        </Button>
+        <Text size="xsmall" tone="tertiary">{log.join(" | ")}</Text>
+      </Rows>
+    </div>
   );
-}
+};

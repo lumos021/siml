@@ -25,12 +25,18 @@ the two source files you drop into it.
    npm install
    ```
 
-3. Copy this package's sources over the starter kit's:
+3. Copy this package's sources into the starter kit (NOTE: the current kit
+   uses an intents layout - the app component lives under
+   `src/intents/design_editor/`, not `src/`):
 
    ```bash
-   cp <siml-repo>/packages/siml-canva/src/app.tsx src/app.tsx
    cp <siml-repo>/packages/siml-canva/src/siml-engine.ts src/siml-engine.ts
+   cp <siml-repo>/packages/siml-canva/src/app.tsx src/intents/design_editor/app.tsx
    ```
+
+   Also replace `src/intents/design_editor/__tests__/app.test.tsx` with a
+   smoke test for the new App (the default test targets the removed
+   Hello World component); see this package's history for the one-liner.
 
 4. `npm start` (serves http://localhost:8080).
 5. In the Developer Portal, set **App source → Development URL** to the dev
