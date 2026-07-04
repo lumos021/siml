@@ -59,6 +59,21 @@ point it at the deployed registry once live (the endpoint sends CORS headers,
 so the Canva iframe can reach it). If unreachable, export continues with
 T0 + T1.
 
+## Required Developer Portal setup
+
+The exported PNG is served from a Canva host, so the app must be allowed to
+fetch it. In the Developer Portal, under your app's **Permissions** (or
+**Configuration -> Domains** / network access), add:
+
+- `https://export-download.canva.com`
+- `https://*.canva.com`
+- your registry origin (e.g. `http://localhost:3000` in dev, your Vercel URL
+  in production) so T2 registration can POST cross-origin
+
+Without the Canva export domain, the app runs the whole pipeline but the
+download silently fails (cross-origin canvas taint); the app now reports this
+explicitly in its log instead of finishing with no file.
+
 ## Notes and limits (v1)
 
 - Text geometry comes from `openDesign` on the current page (absolute pages

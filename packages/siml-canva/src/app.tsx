@@ -101,21 +101,49 @@ export const App = () => {
       if (exp.status !== "completed") { say("Export cancelled."); return; }
       const first = exp.exportBlobs[0];
       if (!first) { say("Export returned no files."); return; }
-      const blob = await (await fetch(first.url)).blob();
+
+      // Canva serves the exported PNG from a remote host. Fetching it and
+      // drawing it to a canvas would TAINT the canvas (cross-origin), making
+      // canvas.toBlob() return null - i.e. "everything runs but nothing
+      // downloads". We avoid the taint by turning the bytes into a same-origin
+      // blob: URL and loading THAT into the image, so the canvas stays clean.
+      say("Downloading the exported image...");
+      let srcBlob: Blob;
+      try {
+        const resp = await fetch(first.url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        srcBlob = await resp.blob();
+      } catch (e) {
+        say(`Could not download the export (${(e as Error).message}). In the Developer Portal, add the export host to Permissions -> Domains: "https://export-download.canva.com" and "https://*.canva.com".`);
+        return;
+      }
+      const blobUrl = URL.createObjectURL(srcBlob);
+      const bmp = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = () => reject(new Error("could not decode the exported PNG"));
+        im.src = blobUrl;
+      });
 
       // Canonical grid: width 1024, height rounded to the 8-pixel block grid.
-      const bmp = await createImageBitmap(blob);
       const W = 1024;
-      const H = Math.max(8, Math.round(((bmp.height / bmp.width) * W) / 8) * 8);
+      const H = Math.max(8, Math.round(((bmp.naturalHeight / bmp.naturalWidth) * W) / 8) * 8);
       const canvas = document.createElement("canvas");
       canvas.width = W;
       canvas.height = H;
       const ctx = canvas.getContext("2d");
-      if (!ctx) { say("Canvas unavailable."); return; }
+      if (!ctx) { say("Canvas unavailable."); URL.revokeObjectURL(blobUrl); return; }
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(bmp, 0, 0, W, H);
-      const img = ctx.getImageData(0, 0, W, H);
+      URL.revokeObjectURL(blobUrl);
+      let img: ImageData;
+      try {
+        img = ctx.getImageData(0, 0, W, H);
+      } catch {
+        say("The image canvas is cross-origin tainted, so it can't be read. Add the Canva export host to the app's Permissions -> Domains in the Developer Portal, then retry.");
+        return;
+      }
 
       const contentId = "siml-" + Date.now().toString(36);
 
@@ -174,7 +202,7 @@ export const App = () => {
       }
 
       const outBlob: Blob | null = await new Promise((r) => canvas.toBlob(r, "image/png"));
-      if (!outBlob) { say("PNG encode failed."); return; }
+      if (!outBlob) { say("PNG encode failed (canvas may be cross-origin tainted - add the export host to the app's Domains permission)."); return; }
       const finalBytes = injectPNG(new Uint8Array(await outBlob.arrayBuffer()), serializeJUMBF(payload));
       const url = URL.createObjectURL(new Blob([finalBytes.buffer as ArrayBuffer], { type: "image/png" }));
       const a = document.createElement("a");
