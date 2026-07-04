@@ -220,8 +220,9 @@ async function phashOf(buffer) {
 }
 
 test('C-T2-01: legit match ≤ threshold, distinct image far outside (§5.3)', async () => {
-  const baseImg = path.join(__dirname, '../../../AA24z3le.png')
-  if (!fs.existsSync(baseImg)) return
+  const local = path.join(__dirname, '../../../AA24z3le.png')
+  // Never a vacuous pass: fall back to the committed real photo on CI.
+  const baseImg = fs.existsSync(local) ? local : path.join(__dirname, '../scripts/sample_bg.png')
 
   const orig = await phashOf(baseImg)
 
@@ -390,8 +391,12 @@ test('C-T2-NEARDUP-04: verification ACCEPTS the correct registered near-dup', as
 const { STALE_THRESHOLD } = require('../src/fingerprint')
 const SVG = inner => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="512">${inner}</svg>`)
 
+function staleBaseImg() {
+  const local = path.join(__dirname, '../../../AA24z3le.png')
+  return fs.existsSync(local) ? local : path.join(__dirname, '../scripts/sample_bg.png')
+}
 async function bannerBase() {
-  return sharp(path.join(__dirname, '../../../AA24z3le.png'))
+  return sharp(staleBaseImg())
     .resize(1024, 512)
     .composite([{ input: SVG(
       `<text x="60" y="200" font-size="44" fill="#fff" font-family="monospace">SUMMER SALE</text>` +
@@ -401,7 +406,6 @@ async function bannerBase() {
 }
 
 test('C-STALE-01: untouched re-encode/downscale stays FRESH (≤ threshold)', async () => {
-  if (!fs.existsSync(path.join(__dirname, '../../../AA24z3le.png'))) return
   const base = await bannerBase()
   const d0 = await phashOf(base)
   for (const t of [
@@ -414,7 +418,6 @@ test('C-STALE-01: untouched re-encode/downscale stays FRESH (≤ threshold)', as
 })
 
 test('C-STALE-02: content edit (phone swapped) trips STALE (> threshold)', async () => {
-  if (!fs.existsSync(path.join(__dirname, '../../../AA24z3le.png'))) return
   const base = await bannerBase()
   const d0 = await phashOf(base)
   // Cover the old phone, draw a different number - the accidental-cloaking case.

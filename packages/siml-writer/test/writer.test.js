@@ -176,7 +176,6 @@ test('W-17: T2 perceptual difference hash is registered', async () => {
     definition,
     outputPath: OUT_PNG,
     format: 'png',
-    registerFingerprint: true, // wait, index.js calls it registerLocal
     registerLocal: true
   })
 
@@ -220,6 +219,16 @@ test('W-18: T1 CRC fails loud on corruption (never a wrong value)', () => {
   if (corrupted !== null) {
     expect(Buffer.from(corrupted).toString('utf8')).toBe('CallMeMaybe12345')
   }
+
+  // Deterministic reject: with the WHOLE image replaced by noise the signal is
+  // gone, and the fail-loud chain (sync/RS/CRC) MUST return null. Without this
+  // branch the reject path could go forever unexercised (the conditional above
+  // passes vacuously whenever redundancy wins).
+  for (let i = 0; i < width * height; i++) {
+    const n = (i * 137 + ((i * i) % 251)) % 256
+    rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = n
+  }
+  expect(extractWatermark(rgba, width, height, 16)).toBeNull()
 })
 
 // TEST W-25: §4.5.1 T1 payload selection + no-truncation guarantee.
@@ -264,6 +273,40 @@ describe('W-25: T1 payload selection (spec §4.5.1)', () => {
     expect(sel.payloadMode).toBe('direct')
     expect(Buffer.from(sel.payload).toString('utf8')).toBe(exact)
   })
+})
+
+// TEST G-01: GOLDEN FIXTURE - decode the COMMITTED demo sample and assert the
+// exact known values. This is the anti-circularity guard: every other T1 test
+// embeds and extracts with the same code, which proves consistency, not
+// correctness - both sides could drift together. A frozen artifact from a past
+// encoder breaks that loop across time: any wire-format change must either
+// still decode history or consciously regenerate the goldens (make-samples).
+test('G-01: committed sample decodes to the known golden values', async () => {
+  const golden = path.join(__dirname, '../../siml-demo/public/test.siml.png')
+  expect(fs.existsSync(golden)).toBe(true) // the sample is committed; no vacuous pass
+
+  // T0: the container carries the known layer.
+  const buf = fs.readFileSync(golden)
+  let payload = null
+  let pos = 8
+  while (pos < buf.length) {
+    const len = buf.readUInt32BE(pos)
+    const type = buf.slice(pos + 4, pos + 8).toString('ascii')
+    if (type === 'siMl') { payload = deserializeJUMBF(buf.subarray(pos + 8, pos + 8 + len)); break }
+    if (type === 'IEND') break
+    pos += 12 + len
+  }
+  expect(payload).not.toBeNull()
+  expect(payload.contentId).toBe('siml-sample-banner')
+  const phoneObj = payload.textLayer.find(o => o.type === 'phone')
+  expect(phoneObj.text).toBe('+91 98765 43210')
+  expect(phoneObj.primary).toBe(true)
+
+  // T1: the pixels carry the phone (direct mode), decoded from the raster alone.
+  const { data, info } = await sharp(golden).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  const t1 = extractWatermark(data, info.width, info.height, 16)
+  expect(t1).not.toBeNull()
+  expect(Buffer.from(t1).toString('utf8').replace(/ /g, '')).toBe('+91 98765 43210')
 })
 
 // TEST W-19: T1 crc16 matches CCITT-FALSE check value (0x29B1 for "123456789").
@@ -332,15 +375,18 @@ test('W-22: JPEG embed throws on payload too large for one APP11 segment', () =>
   expect(() => embedJPEG(tmpIn, payload, tmpOut)).toThrow(/too large/i)
 })
 
-// TEST W-20: T2 Hamming distance is used for threshold matching (≤12 = match).
-test('W-20: T2 near-duplicate within threshold, distinct image rejected', () => {
+// TEST W-20: hammingDistance math sanity against hand-computed vectors, and the
+// comparisons use the RATIFIED threshold constant (was hardcoded to a stale 12,
+// which would have kept passing even if the ratified value drifted).
+test('W-20: hammingDistance math + ratified threshold constant', () => {
   const a = Buffer.alloc(32, 0x00)
   const near = Buffer.alloc(32, 0x00); near[0] = 0x07 // 3 bits set → dist 3
   const far = Buffer.alloc(32, 0xFF)                  // dist 256
 
   expect(hammingDistance(a, near)).toBe(3)
-  expect(hammingDistance(a, near)).toBeLessThanOrEqual(12)
-  expect(hammingDistance(a, far)).toBeGreaterThan(12)
+  expect(hammingDistance(a, far)).toBe(256)
+  expect(hammingDistance(a, near)).toBeLessThanOrEqual(MATCH_THRESHOLD)
+  expect(hammingDistance(a, far)).toBeGreaterThan(MATCH_THRESHOLD)
 })
 
 // TEST W-26: pixelDigest staleness (spec §9.3) end-to-end.
