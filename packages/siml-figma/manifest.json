@@ -1,0 +1,12 @@
+{
+  "name": "SIML Export",
+  "id": "siml-export-dev",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["http://localhost:3000", "https://*.vercel.app"],
+    "reasoning": "Optional: registers the image's perceptual hash with the SIML T2 registry so degraded copies (screenshots, recompressed) can be resolved back to their text layer."
+  }
+}
