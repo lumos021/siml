@@ -24,7 +24,7 @@ function inferType(text: string): string {
 export const App = () => {
   const [t1, setT1] = useState(true);
   const [t2, setT2] = useState(true);
-  const [registry, setRegistry] = useState("http://localhost:3000/api/registry");
+  const [registry, setRegistry] = useState("https://siml-demo.vercel.app/api/registry");
   const [log, setLog] = useState<string[]>(["Open a design with text, then press Export."]);
   const [busy, setBusy] = useState(false);
   const say = (m: string) => setLog((l) => [...l, m]);
