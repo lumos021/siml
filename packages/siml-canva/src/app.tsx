@@ -234,11 +234,22 @@ export const App = () => {
         }
       }
       if (!delivered) {
-        // Offline fallback: emit a data-URL the user can open manually.
-        const b64 = btoa(String.fromCharCode(...finalBytes));
-        say("Copy this link into a new browser tab to download the file:");
-        say(`data:image/png;base64,${b64.length > 120 ? b64.slice(0, 60) + "...(truncated in log; the full data URL is very long - use the registry download instead)" : b64}`);
-        say("Tip: set the Registry URL above to a reachable SIML server so the download opens automatically.");
+        // Fallback: open the file itself as a data: URL via Canva's approved
+        // external-URL flow (no server needed). Base64 is built in chunks -
+        // String.fromCharCode(...wholeArray) overflows the call stack on a
+        // full PNG, which was the "Maximum call stack size exceeded" crash.
+        let bin = "";
+        const CH = 0x8000;
+        for (let i = 0; i < finalBytes.length; i += CH) {
+          bin += String.fromCharCode.apply(null, Array.from(finalBytes.subarray(i, i + CH)));
+        }
+        const dataUrl = `data:image/png;base64,${btoa(bin)}`;
+        const open = await requestOpenExternalUrl({ url: dataUrl });
+        if (open.status === "completed") {
+          say("Opened the file in a new tab - right-click it and Save As to download.");
+        } else {
+          say("Download was not opened. To auto-download instead, set the Registry URL to a reachable SIML server and allow its domain in the app's external-URL permissions.");
+        }
       }
     } catch (err) {
       say("Failed: " + (err as Error).message);
