@@ -8,6 +8,20 @@
 // its own samples via T2 with zero configuration.
 // Hamming-distance lookup (≤ 24) matches the spec §5.3 ratified threshold.
 import { NextRequest, NextResponse } from 'next/server'
+
+// CORS: the registry is a public demo endpoint queried from other origins
+// (the Canva app iframe, external SIML readers). Reads and writes are already
+// unauthenticated by design at this stage, so a permissive CORS policy adds
+// no new exposure.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+export async function OPTIONS () {
+  return new NextResponse(null, { status: 204, headers: CORS })
+}
 import fs from 'fs'
 import path from 'path'
 import seed from '../../../seed-registry.json'
@@ -70,7 +84,7 @@ async function load (): Promise<Record<string, unknown>> {
 export async function GET (request: NextRequest) {
   const hash = request.nextUrl.searchParams.get('hash')
   if (!hash || hash.length !== 64) {
-    return NextResponse.json({ error: 'hash required (64 hex chars)' }, { status: 400 })
+    return NextResponse.json({ error: 'hash required (64 hex chars)' }, { status: 400, headers: CORS })
   }
   const reg = await load()
   // §5.3.1 step 1: return the CANDIDATE SET (all within threshold), nearest first,
@@ -87,9 +101,9 @@ export async function GET (request: NextRequest) {
     return NextResponse.json({
       match: candidates[0].entry, dist: candidates[0].dist, key: candidates[0].key,
       candidates,
-    })
+    }, { headers: CORS })
   }
-  return NextResponse.json({ match: null, candidates: [] })
+  return NextResponse.json({ match: null, candidates: [] }, { headers: CORS })
 }
 
 export async function POST (request: NextRequest) {
@@ -97,11 +111,11 @@ export async function POST (request: NextRequest) {
     const body = await request.json()
     const { hash, payload } = body
     if (!hash || !payload || hash.length !== 64 || !/^[0-9a-f]{64}$/i.test(hash)) {
-      return NextResponse.json({ error: 'hash (64 hex) and payload required' }, { status: 400 })
+      return NextResponse.json({ error: 'hash (64 hex) and payload required' }, { status: 400, headers: CORS })
     }
     await saveEntry(hash, payload)
-    return NextResponse.json({ ok: true, hash })
+    return NextResponse.json({ ok: true, hash }, { headers: CORS })
   } catch {
-    return NextResponse.json({ error: 'invalid body' }, { status: 400 })
+    return NextResponse.json({ error: 'invalid body' }, { status: 400, headers: CORS })
   }
 }
