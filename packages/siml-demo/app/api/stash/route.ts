@@ -44,8 +44,8 @@ export async function POST (request: NextRequest) {
 export async function GET (request: NextRequest) {
   sweep()
   const id = request.nextUrl.searchParams.get('id')
-  const entry = id ? STASH.get(id) : null
-  if (!entry) {
+  const entry = id ? STASH.get(id) : undefined
+  if (!id || !entry) {
     return new NextResponse('not found or expired', { status: 404, headers: CORS })
   }
   STASH.delete(id) // single use

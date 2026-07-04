@@ -118,12 +118,12 @@ export const App = () => {
         say(`Could not download the export (${(e as Error).message}). In the Developer Portal, add the export host to Permissions -> Domains: "https://export-download.canva.com" and "https://*.canva.com".`);
         return;
       }
-      const blobUrl = URL.createObjectURL(srcBlob);
+      const exportBlobUrl = URL.createObjectURL(srcBlob);
       const bmp = await new Promise<HTMLImageElement>((resolve, reject) => {
         const im = new Image();
         im.onload = () => resolve(im);
         im.onerror = () => reject(new Error("could not decode the exported PNG"));
-        im.src = blobUrl;
+        im.src = exportBlobUrl;
       });
 
       // Canonical grid: width 1024, height rounded to the 8-pixel block grid.
@@ -133,11 +133,11 @@ export const App = () => {
       canvas.width = W;
       canvas.height = H;
       const ctx = canvas.getContext("2d");
-      if (!ctx) { say("Canvas unavailable."); URL.revokeObjectURL(blobUrl); return; }
+      if (!ctx) { say("Canvas unavailable."); URL.revokeObjectURL(exportBlobUrl); return; }
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(bmp, 0, 0, W, H);
-      URL.revokeObjectURL(blobUrl);
+      URL.revokeObjectURL(exportBlobUrl);
       let img: ImageData;
       try {
         img = ctx.getImageData(0, 0, W, H);
@@ -206,50 +206,33 @@ export const App = () => {
       if (!outBlob) { say("PNG encode failed (canvas may be cross-origin tainted - add the export host to the app's Domains permission)."); return; }
       const finalBytes = injectPNG(new Uint8Array(await outBlob.arrayBuffer()), serializeJUMBF(payload));
 
-      // Canva's sandboxed iframe blocks programmatic <a download>, and asset
-      // upload would re-encode the PNG (destroying the T0 chunk). So we stash
-      // the byte-exact file on the registry origin and open its download URL
-      // via Canva's approved external-URL flow.
+      // Canva's sandbox closes every LOCAL download path (programmatic <a>
+      // click, data: URL, LinkButton) - requestOpenExternalUrl accepts https:
+      // only. So the file is stashed on the SIML server (HTTPS in prod) and its
+      // download URL opened via that approved flow. Requires an HTTPS Registry
+      // URL reachable from the browser (the deployed demo; localhost http will
+      // be blocked as mixed content).
       say(`Done. Written tiers: T0${t1Mode ? ` + T1 (${t1Mode})` : ""}${t2 ? " + T2" : ""}. Preparing download...`);
       const origin = (() => { try { return new URL(registry.trim()).origin; } catch { return ""; } })();
-      let delivered = false;
-      if (origin) {
-        try {
-          const res = await fetch(`${origin}/api/stash?name=design`, {
-            method: "POST",
-            headers: { "Content-Type": "image/png" },
-            body: finalBytes.buffer as ArrayBuffer,
-          });
-          if (res.ok) {
-            const { id } = await res.json();
-            const dl = `${origin}/api/stash?id=${id}`;
-            const open = await requestOpenExternalUrl({ url: dl });
-            if (open.status === "completed") { delivered = true; say(`Download opened in a new tab: ${dl}`); }
-            else say("Download was not opened (dismissed).");
-          } else {
-            say(`Could not prepare the download (HTTP ${res.status}).`);
-          }
-        } catch {
-          say("Could not reach the download service.");
-        }
+      if (!origin.startsWith("https://")) {
+        say("Download needs an HTTPS SIML server: set the Registry URL to your deployed demo (https://...), not localhost. The layer was still embedded - you can also verify by re-exporting to that server.");
+        return;
       }
-      if (!delivered) {
-        // Fallback: open the file itself as a data: URL via Canva's approved
-        // external-URL flow (no server needed). Base64 is built in chunks -
-        // String.fromCharCode(...wholeArray) overflows the call stack on a
-        // full PNG, which was the "Maximum call stack size exceeded" crash.
-        let bin = "";
-        const CH = 0x8000;
-        for (let i = 0; i < finalBytes.length; i += CH) {
-          bin += String.fromCharCode.apply(null, Array.from(finalBytes.subarray(i, i + CH)));
-        }
-        const dataUrl = `data:image/png;base64,${btoa(bin)}`;
-        const open = await requestOpenExternalUrl({ url: dataUrl });
-        if (open.status === "completed") {
-          say("Opened the file in a new tab - right-click it and Save As to download.");
-        } else {
-          say("Download was not opened. To auto-download instead, set the Registry URL to a reachable SIML server and allow its domain in the app's external-URL permissions.");
-        }
+      try {
+        const res = await fetch(`${origin}/api/stash?name=design`, {
+          method: "POST",
+          headers: { "Content-Type": "image/png" },
+          body: finalBytes.buffer as ArrayBuffer,
+        });
+        if (!res.ok) { say(`Could not prepare the download (HTTP ${res.status}).`); return; }
+        const { id } = await res.json();
+        const dl = `${origin}/api/stash?id=${id}`;
+        const opened = await requestOpenExternalUrl({ url: dl });
+        say(opened.status === "completed"
+          ? `Download opened in a new tab: ${dl}`
+          : "Download link was dismissed - copy it from the log if needed.");
+      } catch {
+        say("Could not reach the download service. Ensure the HTTPS Registry URL is correct and its domain is allowed in the app's external-URL permissions.");
       }
     } catch (err) {
       say("Failed: " + (err as Error).message);
