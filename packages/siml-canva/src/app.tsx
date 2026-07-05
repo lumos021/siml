@@ -1,9 +1,10 @@
 // SIML Export - Canva app.
 // Reads the current page's text elements (exact strings + geometry via the
-// Design Editing API), exports the design as PNG (requestExport), embeds the
-// SIML tiers with the shared engine, and downloads the result.
+// Design Editing API), exports the design via requestExport (Canva's export
+// dialog is the format chooser - PNG or JPG), embeds the SIML tiers with the
+// shared engine, and downloads the result.
 import { useState } from "react";
-import { Button, Rows, Text, Title, FormField, TextInput, Checkbox, Select } from "@canva/app-ui-kit";
+import { Button, Rows, Text, Title, FormField, TextInput, Checkbox } from "@canva/app-ui-kit";
 import { openDesign, requestExport, getDefaultPageDimensions } from "@canva/design";
 import { requestOpenExternalUrl } from "@canva/platform";
 import {
@@ -12,12 +13,6 @@ import {
 } from "../../siml-engine";
 import type { LayerObject } from "../../siml-engine";
 import * as styles from "styles/components.css";
-
-type Format = "png" | "jpeg";
-const FMT: Record<Format, { mime: string; ext: string }> = {
-  png: { mime: "image/png", ext: "png" },
-  jpeg: { mime: "image/jpeg", ext: "jpg" },
-};
 
 function inferType(text: string): string {
   const t = text.trim();
@@ -30,7 +25,6 @@ function inferType(text: string): string {
 export const App = () => {
   const [t1, setT1] = useState(true);
   const [t2, setT2] = useState(true);
-  const [format, setFormat] = useState<Format>("png");
   const [registry, setRegistry] = useState("https://siml-demo.vercel.app/api/registry");
   const [log, setLog] = useState<string[]>(["Open a design with text, then press Export."]);
   const [busy, setBusy] = useState(false);
@@ -66,7 +60,6 @@ export const App = () => {
       }
       if (!pageW || !pageH) return;
 
-      let sawPrimary = false;
       const out: LayerObject[] = [];
       let i = 0;
       for (const e of els) {
@@ -74,13 +67,11 @@ export const App = () => {
         const text = e.text.readPlaintext().trim();
         if (!text) continue;
         const type = inferType(text);
-        const primary = !sawPrimary && type === "phone" ? (sawPrimary = true) : false;
         out.push({
           id: "t" + ++i,
           text,
           type,
           intent: ACTIONABLE.has(type) ? "actionable" : "auto",
-          primary: primary || undefined,
           bounds: {
             x: +((100 * e.left) / pageW).toFixed(2),
             y: +((100 * e.top) / pageH).toFixed(2),
@@ -90,6 +81,8 @@ export const App = () => {
         });
       }
       out.sort((a, b) => a.bounds.y - b.bounds.y || a.bounds.x - b.bounds.x);
+      const firstPhone = out.find((o) => o.type === "phone");
+      if (firstPhone) firstPhone.primary = true;
       layer = out;
     });
     return layer;
@@ -104,13 +97,16 @@ export const App = () => {
       if (!layer) { say("Could not read this page (unsupported page type)."); return; }
       say(`Found ${layer.length} text element(s).`);
 
-      say("Requesting PNG export (complete the export dialog)...");
-      const exp = await requestExport({ acceptedFileTypes: ["png"] });
+      // Canva's export dialog is a platform consent step that cannot be
+      // skipped, so it doubles as the ONLY format chooser: pick PNG or JPG
+      // there, and the SIML file comes back in the same format.
+      say("Canva's export dialog is opening - choose PNG or JPG there and press its Export button.");
+      const exp = await requestExport({ acceptedFileTypes: ["png", "jpg"] });
       if (exp.status !== "completed") { say("Export cancelled."); return; }
       const first = exp.exportBlobs[0];
       if (!first) { say("Export returned no files."); return; }
 
-      // Canva serves the exported PNG from a remote host. Fetching it and
+      // Canva serves the exported file from a remote host. Fetching it and
       // drawing it to a canvas would TAINT the canvas (cross-origin), making
       // canvas.toBlob() return null - i.e. "everything runs but nothing
       // downloads". We avoid the taint by turning the bytes into a same-origin
@@ -125,11 +121,20 @@ export const App = () => {
         say(`Could not download the export (${(e as Error).message}). In the Developer Portal, add the export host to Permissions -> Domains: "https://export-download.canva.com" and "https://*.canva.com".`);
         return;
       }
+
+      // The format the user picked in Canva's dialog, read from the bytes
+      // themselves (FF D8 = JPEG, 89 50 4E 47 = PNG) - no second dropdown.
+      const head = new Uint8Array(await srcBlob.slice(0, 4).arrayBuffer());
+      const isJPEG = head[0] === 0xff && head[1] === 0xd8;
+      const mime = isJPEG ? "image/jpeg" : "image/png";
+      const label = isJPEG ? "JPEG" : "PNG";
+      say(`Export received (${label}).`);
+
       const exportBlobUrl = URL.createObjectURL(srcBlob);
       const bmp = await new Promise<HTMLImageElement>((resolve, reject) => {
         const im = new Image();
         im.onload = () => resolve(im);
-        im.onerror = () => reject(new Error("could not decode the exported PNG"));
+        im.onerror = () => reject(new Error("could not decode the exported image"));
         im.src = exportBlobUrl;
       });
 
@@ -222,20 +227,20 @@ export const App = () => {
         }
       }
 
-      // Encode to the chosen format, then inject T0 into that container. JPEG
-      // uses q0.92 - high enough that the T1 watermark (which survives JPEG
-      // q30+) is unaffected, while T0 rides in an APP11 segment.
-      const fmt = FMT[format];
-      const q = format === "jpeg" ? 0.92 : undefined;
-      const outBlob: Blob | null = await new Promise((r) => canvas.toBlob(r, fmt.mime, q));
-      if (!outBlob) { say(`${format.toUpperCase()} encode failed (canvas may be cross-origin tainted - add the export host to the app's Domains permission).`); return; }
+      // Re-encode in the format the user picked in Canva's dialog, then
+      // inject T0 into that container. JPEG uses q0.92 - high enough that the
+      // T1 watermark (which survives JPEG q30+) is unaffected, while T0 rides
+      // in an APP11 segment.
+      const q = isJPEG ? 0.92 : undefined;
+      const outBlob: Blob | null = await new Promise((r) => canvas.toBlob(r, mime, q));
+      if (!outBlob) { say(`${label} encode failed (canvas may be cross-origin tainted - add the export host to the app's Domains permission).`); return; }
       const encoded = new Uint8Array(await outBlob.arrayBuffer());
       const jumbf = serializeJUMBF(payload);
       let finalBytes: Uint8Array;
       try {
-        finalBytes = format === "jpeg" ? injectJPEG(encoded, jumbf) : injectPNG(encoded, jumbf);
+        finalBytes = isJPEG ? injectJPEG(encoded, jumbf) : injectPNG(encoded, jumbf);
       } catch (e) {
-        say(`Could not write the ${format.toUpperCase()} container (${(e as Error).message}). Try PNG.`);
+        say(`Could not write the ${label} container (${(e as Error).message}). Try PNG.`);
         return;
       }
 
@@ -254,7 +259,7 @@ export const App = () => {
       try {
         const res = await fetch(`${origin}/api/stash?name=design`, {
           method: "POST",
-          headers: { "Content-Type": fmt.mime },
+          headers: { "Content-Type": mime },
           body: finalBytes.buffer as ArrayBuffer,
         });
         if (!res.ok) { say(`Could not prepare the download (HTTP ${res.status}).`); return; }
@@ -284,20 +289,10 @@ export const App = () => {
           Every text field is preserved; the first actionable field (a phone
           number, if any) is also carried in an invisible pixel watermark.
         </Text>
-        <FormField
-          label="Format"
-          value={format}
-          control={(props) => (
-            <Select
-              {...props}
-              options={[
-                { value: "png", label: "PNG (lossless)" },
-                { value: "jpeg", label: "JPEG (smaller file)" },
-              ]}
-              onChange={(v) => setFormat(v as Format)}
-            />
-          )}
-        />
+        <Text size="small" tone="tertiary">
+          Pressing Export opens Canva's export dialog - that is where you choose
+          PNG or JPG. When it finishes, the SIML download link opens in a new tab.
+        </Text>
         <Checkbox
           checked={t1}
           onChange={(_, checked) => setT1(checked)}
