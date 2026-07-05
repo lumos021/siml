@@ -658,6 +658,13 @@ export default function ViewPage() {
 
           const inner = span.querySelector(".siml-text-inner");
           if (inner) {
+            if (boxHeightPx > 0) {
+              // The ::selection highlight paints the LINE box, not the bounds
+              // box - with a smaller line-height the highlight falls short of
+              // the recorded bounds vertically. Stretch the line box to the
+              // full bounds height so selection covers the whole field.
+              inner.style.lineHeight = `${boxHeightPx.toFixed(2)}px`;
+            }
             inner.style.transform = "none";
             const naturalWidthPx = inner.getBoundingClientRect().width;
             if (naturalWidthPx > 0) {
