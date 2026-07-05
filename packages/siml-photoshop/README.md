@@ -46,7 +46,6 @@ export continues with T0 + T1.
 
 ## Illustrator status (checked 2026-07)
 
-UXP is not yet public for third-party Illustrator plugins; the only public
-panel technology there is legacy CEP. Decision: wait for Illustrator UXP
-rather than invest in CEP. Illustrator users can meanwhile export via
-Photoshop or the demo editor.
+UXP is not yet public for third-party Illustrator plugins; the supported
+panel technology there is CEP. The Illustrator extension lives at
+`packages/siml-illustrator` and shares this plugin's engine byte-for-byte.

@@ -1,15 +1,11 @@
-// SIML Export - Photoshop UXP plugin.
-// Reads type layers (exact strings + pixel bounds), renders the document to
-// the canonical grid via a duplicate, embeds the SIML tiers with the shared
-// engine (canvas-free variant - UXP imaging supplies pixels directly), and
-// saves the result through a real file dialog. No stash server needed: UXP,
-// unlike Canva's sandbox, can write local files.
-/* global document */
-const { app, core, constants, imaging } = require("photoshop");
-const uxp = require("uxp");
-const fsp = uxp.storage.localFileSystem;
-const formats = uxp.storage.formats;
+// SIML Export - Illustrator CEP panel.
+// The host script (host.jsx) collects text frames and rasterizes the active
+// artboard; this panel resamples to the canonical grid, embeds the SIML tiers
+// with the shared engine, and writes the file through a native save dialog
+// (cep.fs - no Node.js flag required).
+/* global window, document, Image, fetch, TextEncoder */
 
+// ENGINE_START (copied verbatim from packages/siml-photoshop/main.js - keep in sync)
 // SIML engine: same math as siml-writer (dual-band QIM, prime-padded
 // stream, RS + CRC fail-loud, JUMBF, 5.3.1 region hash), with pure-JS
 // resampling replacing the browser canvas.
@@ -310,174 +306,172 @@ function injectJPEG(buf, jumbf) {
   if (insertAt === -1) throw new Error("JPEG missing SOS marker");
   return concat([buf.subarray(0, insertAt), segment, buf.subarray(insertAt)]);
 }
+// ENGINE_END
 
 // Panel logic.
-const logEl = document.getElementById("log");
-const say = (m) => { logEl.textContent += "\n" + m; logEl.scrollTop = logEl.scrollHeight; };
+var logEl = document.getElementById("log");
+function say(m) { logEl.textContent += "\n" + m; logEl.scrollTop = logEl.scrollHeight; }
 
 function inferType(text) {
-  const t = text.trim();
+  var t = text.trim();
   if (/^[+()\d][\d\s\-().]{6,}$/.test(t) && (t.match(/\d/g) || []).length >= 7) return "phone";
   if (/^(https?:\/\/|www\.)\S+$/i.test(t)) return "url";
   if (/^\S+@\S+\.\S+$/.test(t)) return "email";
   return "text";
 }
 
-function collectTextLayers(doc) {
-  const W = doc.width, H = doc.height;
-  const out = [];
-  let i = 0;
-  const walk = (layers) => {
-    for (const l of layers) {
-      if (l.layers && l.layers.length) walk(l.layers);
-      if (l.kind !== constants.LayerKind.TEXT || !l.visible) continue;
-      let text = "";
-      try { text = (l.textItem && l.textItem.contents) || ""; } catch (e) { /* some text layers refuse */ }
-      text = String(text).replace(/\r/g, "\n").trim();
-      if (!text) continue;
-      const b = l.bounds; // pixels: {left, top, right, bottom}
-      const type = inferType(text);
-      out.push({
-        id: "t" + ++i,
-        text, type,
-        intent: ACTIONABLE.has(type) ? "actionable" : "auto",
-        bounds: {
-          x: +((100 * b.left) / W).toFixed(2),
-          y: +((100 * b.top) / H).toFixed(2),
-          w: +((100 * (b.right - b.left)) / W).toFixed(2),
-          h: +((100 * (b.bottom - b.top)) / H).toFixed(2),
-        },
-      });
-    }
-  };
-  walk(doc.layers);
-  out.sort((a, b) => a.bounds.y - b.bounds.y || a.bounds.x - b.bounds.x);
-  const firstPhone = out.find((o) => o.type === "phone");
-  if (firstPhone) firstPhone.primary = true;
+function evalScript(script) {
+  return new Promise(function (resolve, reject) {
+    if (!window.__adobe_cep__) { reject(new Error("Not running inside a CEP host.")); return; }
+    window.__adobe_cep__.evalScript(script, function (res) {
+      if (res === "EvalScript error.") reject(new Error("Host script failed."));
+      else resolve(res);
+    });
+  });
+}
+
+function base64ToBytes(b64) {
+  var bin = window.atob(b64);
+  var out = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
 
+function bytesToBase64(bytes) {
+  var CHUNK = 0x8000, parts = [];
+  for (var i = 0; i < bytes.length; i += CHUNK)
+    parts.push(String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK)));
+  return window.btoa(parts.join(""));
+}
+
+function loadImage(dataUrl) {
+  return new Promise(function (resolve, reject) {
+    var img = new Image();
+    img.onload = function () { resolve(img); };
+    img.onerror = function () { reject(new Error("Could not decode the exported raster.")); };
+    img.src = dataUrl;
+  });
+}
+
 async function run() {
-  const go = document.getElementById("go");
+  var go = document.getElementById("go");
   go.disabled = true;
   logEl.textContent = "Working...";
   try {
-    const doc = app.activeDocument;
-    if (!doc) { say("Open a document first."); return; }
-    const format = document.getElementById("format").value || "png";
-    const wantT1 = document.getElementById("t1").checked;
-    const wantT2 = document.getElementById("t2").checked;
-    const registry = document.getElementById("registry").value.trim();
+    var format = document.getElementById("format").value || "png";
+    var wantT1 = document.getElementById("t1").checked;
+    var wantT2 = document.getElementById("t2").checked;
+    var registry = document.getElementById("registry").value.trim();
 
-    const layer = collectTextLayers(doc);
-    say(`Found ${layer.length} text layer(s).`);
-    const phones = layer.filter((o) => o.type === "phone");
-    if (phones.length > 1) say(`${phones.length} phone fields; T1 carries the first in reading order. All fields ride in T0.`);
+    var raw = await evalScript("SIML_collect()");
+    var host = JSON.parse(raw);
+    if (!host.ok) { say("Failed: " + host.error); return; }
 
-    const contentId = "siml-" + Date.now().toString(36);
-    let outBytes = null, t1Mode = null, placement = null, dhash = null, regionInfo = null, pixelDigest = null;
-    let W = 1024, H = 512;
+    // Build the text layer from the host's frames (bounds already in %).
+    var layer = host.frames.map(function (f, idx) {
+      var type = inferType(f.text);
+      return {
+        id: "t" + (idx + 1),
+        text: f.text,
+        type: type,
+        intent: ACTIONABLE.has(type) ? "actionable" : "auto",
+        bounds: { x: f.x, y: f.y, w: f.w, h: f.h },
+      };
+    });
+    layer.sort(function (a, b) { return a.bounds.y - b.bounds.y || a.bounds.x - b.bounds.x; });
+    for (var pi = 0; pi < layer.length; pi++) {
+      if (layer[pi].type === "phone") { layer[pi].primary = true; break; }
+    }
+    say("Found " + layer.length + " text frame(s).");
+    var phones = layer.filter(function (o) { return o.type === "phone"; });
+    if (phones.length > 1) say(phones.length + " phone fields; T1 carries the first in reading order. All fields ride in T0.");
 
-    await core.executeAsModal(async () => {
-      // Render to the canonical grid on a throwaway duplicate.
-      const dup = await doc.duplicate();
-      try {
-        await dup.flatten();
-        H = Math.max(8, Math.round(((doc.height / doc.width) * W) / 8) * 8);
-        await dup.resizeImage(W, H);
+    // Read the artboard raster and resample to the canonical grid.
+    var readRes = window.cep.fs.readFile(host.pngPath, window.cep.encoding.Base64);
+    if (readRes.err !== 0) { say("Failed: could not read the exported raster (fs err " + readRes.err + ")."); return; }
+    var img = await loadImage("data:image/png;base64," + readRes.data);
+    var W = 1024;
+    var H = Math.max(8, Math.round(((img.naturalHeight / img.naturalWidth) * W) / 8) * 8);
+    var canvas = document.createElement("canvas");
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H); // opaque base so JPEG and the watermark agree
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, W, H);
+    var imageData = ctx.getImageData(0, 0, W, H);
+    var rgba = imageData.data;
 
-        const flat = dup.layers[0];
-        const px = await imaging.getPixels({ documentID: dup.id, componentSize: 8, applyAlpha: true });
-        const data = await px.imageData.getData({ chunky: true });
-        px.imageData.dispose();
-        // normalize to RGBA (getPixels may hand back 1, 3, or 4 components)
-        const rgba = new Uint8ClampedArray(W * H * 4);
-        const nComp = Math.round(data.length / (W * H));
-        for (let i = 0; i < W * H; i++) {
-          rgba[i * 4] = data[i * nComp];
-          rgba[i * 4 + 1] = data[i * nComp + (nComp > 2 ? 1 : 0)];
-          rgba[i * 4 + 2] = data[i * nComp + (nComp > 2 ? 2 : 0)];
-          rgba[i * 4 + 3] = 255;
-        }
-
-        if (wantT1) {
-          const sel = selectT1Payload(layer, contentId);
-          if (sel) {
-            const p = new Uint8Array(16);
-            p.set(new TextEncoder().encode(sel.value));
-            const stat = embedWatermark(rgba, W, H, p);
-            t1Mode = sel.mode; placement = stat.placement;
-            // write the watermarked pixels back before export (RGB: the
-            // flattened background layer takes no alpha channel)
-            const rgb = new Uint8Array(W * H * 3);
-            for (let i = 0; i < W * H; i++) {
-              rgb[i * 3] = rgba[i * 4];
-              rgb[i * 3 + 1] = rgba[i * 4 + 1];
-              rgb[i * 3 + 2] = rgba[i * 4 + 2];
-            }
-            const newData = await imaging.createImageDataFromBuffer(rgb, {
-              width: W, height: H, components: 3, chunky: true, colorSpace: "RGB",
-            });
-            await imaging.putPixels({ documentID: dup.id, layerID: flat.id, imageData: newData, replace: true });
-            newData.dispose();
-          }
-        }
-
-        pixelDigest = pHashOfRGBA(rgba, W, H);
-        if (wantT2) {
-          dhash = pHashOfRGBA(rgba, W, H);
-          const regionObj = layer.find((o) => o.primary) ||
-            layer.find((o) => ACTIONABLE.has(o.type) && o.intent !== "readonly") || layer[0];
-          if (regionObj) regionInfo = { hash: regionHashOfRGBA(rgba, W, H, regionObj.bounds), bounds: regionObj.bounds };
-        }
-
-        // Export the duplicate to a temp file in the chosen format.
-        const tmp = await fsp.getTemporaryFolder();
-        const tmpFile = await tmp.createFile(`siml-tmp.${format === "jpeg" ? "jpg" : "png"}`, { overwrite: true });
-        if (format === "jpeg") await dup.saveAs.jpg(tmpFile, { quality: 11 }, true);
-        else await dup.saveAs.png(tmpFile, { compression: 4 }, true);
-        const raw = await tmpFile.read({ format: formats.binary });
-        outBytes = new Uint8Array(raw);
-      } finally {
-        await dup.closeWithoutSaving();
+    var contentId = "siml-" + Date.now().toString(36);
+    var t1Mode = null, placement = null;
+    if (wantT1) {
+      var sel = selectT1Payload(layer, contentId);
+      if (sel) {
+        var p = new Uint8Array(16);
+        p.set(new TextEncoder().encode(sel.value));
+        var stat = embedWatermark(rgba, W, H, p);
+        t1Mode = sel.mode; placement = stat.placement;
+        ctx.putImageData(imageData, 0, 0);
       }
-    }, { commandName: "SIML Export" });
-
-    if (!outBytes) { say("Export failed."); return; }
-    if (wantT1 && t1Mode) say(`T1 watermark embedded (${t1Mode}, ${placement} placement).`);
+    }
+    if (wantT1 && t1Mode) say("T1 watermark embedded (" + t1Mode + ", " + placement + " placement).");
     else if (wantT1) say("T1 skipped: no phone/url/email/address field fits 16 bytes. T0 + T2 still carry all text.");
 
-    const payload = {
-      siml: "0.3", contentId, pixelDigest,
-      binding: { t0: true, t1: !!t1Mode, t2: wantT2, ...(t1Mode ? { payloadMode: t1Mode, canonicalWidth: W } : {}) },
+    var pixelDigest = pHashOfRGBA(rgba, W, H);
+    var dhash = null, regionInfo = null;
+    if (wantT2) {
+      dhash = pixelDigest;
+      var regionObj = null;
+      for (var i = 0; i < layer.length; i++) if (layer[i].primary) { regionObj = layer[i]; break; }
+      if (!regionObj) for (var j = 0; j < layer.length; j++) if (ACTIONABLE.has(layer[j].type)) { regionObj = layer[j]; break; }
+      if (!regionObj && layer.length) regionObj = layer[0];
+      if (regionObj) regionInfo = { hash: regionHashOfRGBA(rgba, W, H, regionObj.bounds), bounds: regionObj.bounds };
+    }
+
+    var payload = {
+      siml: "0.3", contentId: contentId, pixelDigest: pixelDigest,
+      binding: Object.assign(
+        { t0: true, t1: !!t1Mode, t2: wantT2 },
+        t1Mode ? { payloadMode: t1Mode, canonicalWidth: W } : {}
+      ),
       image: { width: W, height: H },
       permissions: { platformCanDisableSelection: true, platformCanDisableLinks: true, platformCanDisableAll: false },
-      textLayer: layer.map((o) => ({ ...o, runs: [{ bounds: o.bounds, text: o.text }], selectable: true, label: null })),
+      textLayer: layer.map(function (o) {
+        return Object.assign({}, o, { runs: [{ bounds: o.bounds, text: o.text }], selectable: true, label: null });
+      }),
     };
 
     if (wantT2 && dhash) {
-      const body = { ...payload };
+      var body = Object.assign({}, payload);
       if (regionInfo) { body.regionHash = regionInfo.hash; body.regionBounds = regionInfo.bounds; }
       try {
-        const res = await fetch(registry, {
+        var res = await fetch(registry, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ hash: dhash, payload: body }),
         });
-        say(res.ok ? "T2 registered." : `T2 registration failed (HTTP ${res.status}) - continuing.`);
+        say(res.ok ? "T2 registered." : "T2 registration failed (HTTP " + res.status + ") - continuing.");
       } catch (e) {
         say("T2 registry unreachable - continuing without it.");
       }
     }
 
-    const jumbf = serializeJUMBF(payload);
-    const finalBytes = format === "jpeg" ? injectJPEG(outBytes, jumbf) : injectPNG(outBytes, jumbf);
+    var dataUrl = format === "jpeg" ? canvas.toDataURL("image/jpeg", 0.92) : canvas.toDataURL("image/png");
+    var outBytes = base64ToBytes(dataUrl.slice(dataUrl.indexOf(",") + 1));
+    var jumbf = serializeJUMBF(payload);
+    var finalBytes = format === "jpeg" ? injectJPEG(outBytes, jumbf) : injectPNG(outBytes, jumbf);
 
-    const ext = format === "jpeg" ? "jpg" : "png";
-    const outFile = await fsp.getFileForSaving(`${doc.name.replace(/\.[^.]+$/, "")}.siml.${ext}`, { types: [ext] });
-    if (!outFile) { say("Save cancelled."); return; }
-    await outFile.write(finalBytes.buffer, { format: formats.binary });
+    var ext = format === "jpeg" ? "jpg" : "png";
+    var suggested = (host.docName || "artboard") + ".siml." + ext;
+    var dlg = window.cep.fs.showSaveDialogEx("Save SIML image", "", [ext], suggested);
+    if (dlg.err !== 0 || !dlg.data) { say("Save cancelled."); return; }
+    var outPath = dlg.data;
+    if (!new RegExp("\\." + ext + "$", "i").test(outPath)) outPath += "." + ext;
+    var writeRes = window.cep.fs.writeFile(outPath, bytesToBase64(finalBytes), window.cep.encoding.Base64);
+    if (writeRes.err !== 0) { say("Failed: could not write the file (fs err " + writeRes.err + ")."); return; }
 
-    say(`Done. Written tiers: T0${t1Mode ? ` + T1 (${t1Mode})` : ""}${wantT2 ? " + T2" : ""}. Saved ${outFile.name}.`);
+    say("Done. Written tiers: T0" + (t1Mode ? " + T1 (" + t1Mode + ")" : "") + (wantT2 ? " + T2" : "") + ".");
+    say("Saved " + outPath);
     say("Verify at siml-demo.vercel.app/view (drop the file, run the strip simulator).");
   } catch (err) {
     say("Failed: " + (err && err.message ? err.message : String(err)));
