@@ -1,0 +1,21 @@
+{
+  "id": "siml.export",
+  "name": "SIML Export",
+  "version": "1.0.0",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": [{ "app": "PS", "minVersion": "24.4.0" }],
+  "requiredPermissions": {
+    "localFileSystem": "request",
+    "network": { "domains": ["https://siml-demo.vercel.app"] }
+  },
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "simlPanel",
+      "label": { "default": "SIML Export" },
+      "minimumSize": { "width": 300, "height": 420 },
+      "preferredDockedSize": { "width": 340, "height": 560 }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+<style>
+  body { margin: 0; padding: 12px; font-size: 12px; }
+  .row { margin-bottom: 10px; }
+  #log {
+    margin-top: 12px; padding: 8px; border-radius: 6px;
+    background: rgba(128,128,128,0.15);
+    font-family: monospace; font-size: 10px; line-height: 1.6;
+    max-height: 220px; overflow-y: auto; white-space: pre-wrap;
+  }
+  .muted { opacity: 0.7; font-size: 10.5px; line-height: 1.4; }
+</style>
+
+<sp-heading size="S">Export with SIML</sp-heading>
+<sp-body size="S" class="row">
+  Exports the active document as an image whose text stays selectable,
+  copyable, and machine-readable, surviving re-compression and messaging apps.
+  Text comes straight from the document's type layers.
+</sp-body>
+
+<div class="row">
+  <sp-picker id="format" size="m">
+    <sp-menu slot="options">
+      <sp-menu-item value="png" selected>PNG (lossless)</sp-menu-item>
+      <sp-menu-item value="jpeg">JPEG (smaller file)</sp-menu-item>
+    </sp-menu>
+  </sp-picker>
+</div>
+<div class="row"><sp-checkbox id="t1" checked>T1 pixel watermark (offline recovery)</sp-checkbox></div>
+<div class="row"><sp-checkbox id="t2" checked>T2 registry fingerprint (screenshot recovery)</sp-checkbox></div>
+<div class="row">
+  <sp-textfield id="registry" style="width:100%" value="https://siml-demo.vercel.app/api/registry">
+    <sp-label slot="label">Registry URL</sp-label>
+  </sp-textfield>
+</div>
+
+<sp-button id="go" variant="cta" style="width:100%">Export with SIML</sp-button>
+
+<div id="log">Open a document with type layers, then press Export.</div>
+<p class="muted">The first phone number found rides in an invisible pixel
+watermark; every text layer is preserved in the container. Verify exports at
+siml-demo.vercel.app/view.</p>
+
+<script src="main.js"></script>

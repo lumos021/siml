@@ -73,6 +73,9 @@ packages/
   siml-demo/       Next.js editor UI (/create), viewer (/view), and HTTP T2 registry (/api/registry)
   siml-reader/     Browser client-side JS SDK for JUMBF (T0), watermark (T1), and T2 resolve queries
   siml-writer/     Node.js CLI & server SDK for embedding JUMBF blocks and watermarking pixels
+  siml-canva/      Canva app: export designs as SIML images (see its README for the starter-kit setup)
+  siml-figma/      Figma plugin: export frames as SIML images
+  siml-photoshop/  Photoshop UXP plugin: export documents as SIML images with native file save
 siml_watermark.py  Python reference implementation of the robust T1 watermark & self-test
 siml_preserve.py   Python reference hook to preserve metadata across third-party compressions
 SIML-SPEC-v0.3.md  The current tri-tier format specification
