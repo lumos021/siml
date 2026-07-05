@@ -47,7 +47,7 @@ A reader tries them in fidelity order - **T0 → T1 → T2 → OCR/visible-text 
 
 **Honesty rule baked into the project:** "survives social media / screenshots" is a **T2** capability (it needs the registry). The offline configuration (T0 + T1) is described as "survives re-encode and moderate downscale" - never "survives anything."
 
-The Tier-1 reference watermark (`siml_watermark.py`) is measured at 46.7-49 dB PSNR across content classes (dual-band placement keeps smooth areas byte-untouched or at a visually clean half-strength) and recovers a phone number cleanly through JPEG q30+, high-quality WebP (q90+), double-compression, and screenshot-style transforms. Under aggressive downscale + recompression the signal is genuinely gone - so it **fails loudly** (a CRC rejects bad reads) rather than returning a wrong number, and hands off to T2.
+The Tier-1 watermark (canonical implementation: [`packages/siml-writer/src/watermark.js`](packages/siml-writer/src/watermark.js), pinned by the conformance suite) is measured at 46.7-49 dB PSNR across content classes (dual-band placement keeps smooth areas byte-untouched or at a visually clean half-strength) and recovers a phone number cleanly through JPEG q30+, high-quality WebP (q90+), double-compression, and screenshot-style transforms. Under aggressive downscale + recompression the signal is genuinely gone - so it **fails loudly** (a CRC rejects bad reads) rather than returning a wrong number, and hands off to T2.
 
 ---
 
@@ -60,8 +60,8 @@ npm install
 # run the Next.js editor + viewer + registry in dev mode
 npm run dev
 
-# run the Tier-1 watermark robustness self-test (Python reference)
-python3 siml_watermark.py
+# run the full test suites (writer + reader, incl. T1 conformance floors)
+npm test
 ```
 
 Then open [http://localhost:3000](http://localhost:3000) - use the **editor** to place text objects on an image and write the tiers you want, and the **viewer** to select/copy the recovered text.
@@ -79,7 +79,7 @@ packages/
   siml-figma/      Figma plugin: export frames as SIML images
   siml-photoshop/  Photoshop UXP plugin: export documents as SIML images with native file save
   siml-illustrator/ Illustrator CEP extension: export artboards as SIML images
-siml_watermark.py  Python reference implementation of the robust T1 watermark & self-test
+siml_watermark.py  Original Python T1 recipe (historical; the JS writer is canonical)
 siml_preserve.py   Python reference hook to preserve metadata across third-party compressions
 SIML-SPEC-v0.3.md  The current tri-tier format specification
 INTEGRATION.md     Integration guidelines and API registry wire specifications
@@ -164,7 +164,7 @@ The novelty is the **combination**: a positioned, copyable, semantically-typed t
 - [SIML-SPEC-v0.4-draft.md](SIML-SPEC-v0.4-draft.md) - draft: verified visible text (checksum-guided OCR, working prototype)
 - [ROADMAP.md](ROADMAP.md) - directions the work could go, for anyone who picks it up
 - [SIML-SPEC-v0.2.md](SIML-SPEC-v0.2.md) - the JUMBF carrier + text-layer schema
-- [siml_watermark.py](siml_watermark.py) - validated Tier-1 reference + self-test
+- [siml_watermark.py](siml_watermark.py) - the original Tier-1 recipe + self-test (historical; superseded by the dual-band JS writer, see spec §12)
 - [siml_preserve.py](siml_preserve.py) - verified Level-P preservation hook + adversarial tests
 - [INTEGRATION.md](INTEGRATION.md) - how anyone adds SIML support (conformance levels, SDK, registry protocol, security)
 

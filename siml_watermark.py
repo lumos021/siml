@@ -1,6 +1,15 @@
 """
 siml-watermark : Tier-1 robust pixel watermark for SIML  (corrected build)
 
+STATUS: HISTORICAL. This is the original validated recipe. The canonical,
+current implementation is the JavaScript writer
+(packages/siml-writer/src/watermark.js), which adds dual-band placement
+(smooth blocks byte-untouched or embedded at half-strength Q=13), a
+prime-padded bitstream, and positional vote guarantees, and is pinned by the
+conformance suite (measured 46.7-49 dB PSNR). Images embedded by this file
+still decode: the JS decoder's third attempt is legacy full-coverage
+compatible. See SIML-SPEC-v0.3.md section 12.
+
 Core = fixed-step low-mid QIM (survives JPEG/WebP down to ~q30). Upgrades kept
 after testing (fancier schemes were tried and DISCARDED - see notes):
   - Soft-decision voting: distance-to-even/odd bin as a soft vote summed across
