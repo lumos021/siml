@@ -639,12 +639,22 @@ export default function ViewPage() {
         const width = entry.contentRect.width;
         setScale(width / 1024);
 
-        // Apply scaleX sizing fit to all overlay spans inside the container
+        // Box-fit BOTH axes so the transparent selection text tracks the baked
+        // glyphs regardless of which tool exported the file (demo editor,
+        // Canva, Figma): glyph height comes from the recorded bounds box (a
+        // tool's font-size units are not trustworthy across hosts), and width
+        // is fitted with scaleX.
         const spans = entry.target.querySelectorAll(".siml-text-node");
         spans.forEach((span: any) => {
           const wPct = parseFloat(span.dataset.simlW || "0");
           if (!wPct) return;
           const targetWidthPx = (wPct / 100) * width;
+
+          const boxHeightPx = span.getBoundingClientRect().height;
+          if (boxHeightPx > 0) {
+            // ~78% of box height approximates cap-height text filling a frame
+            span.style.fontSize = `${(boxHeightPx * 0.78).toFixed(2)}px`;
+          }
 
           const inner = span.querySelector(".siml-text-inner");
           if (inner) {
