@@ -2,7 +2,9 @@
 
 **Make the text inside an image selectable, copyable, and machine-readable - like a PDF text layer, but for raster images, and hardened to survive real-world distribution.**
 
-> Status: working prototype (editor + viewer, all three tiers) · License: **CC0 1.0 (public domain)**
+> Status: **complete** - spec v0.3 stable, reference writer/reader, live demo, design-tool exporters. This project is finished work, released whole into the public domain. It is not under active development; everything here is free to fork, implement, and build on without permission. · License: **CC0 1.0 (public domain)**
+>
+> **Live demo:** [siml-demo.vercel.app](https://siml-demo.vercel.app) - author an image in the editor, degrade it in the viewer's strip simulator, watch the text recover.
 >
 > [![tests](https://github.com/lumos021/siml/actions/workflows/test.yml/badge.svg)](https://github.com/lumos021/siml/actions/workflows/test.yml)
 
@@ -83,6 +85,12 @@ SIML-SPEC-v0.3.md  The current tri-tier format specification
 INTEGRATION.md     Integration guidelines and API registry wire specifications
 ```
 
+Maturity, honestly stated: the writer, reader, demo, and Canva app are tested
+end to end (including through real messaging-app re-compression). The Figma,
+Photoshop, and Illustrator exporters share the same verified engine but have
+not been exercised inside their host apps; treat them as reference
+implementations and test in your environment before relying on them.
+
 ---
 
 ## How it works
@@ -122,7 +130,7 @@ The reference hook ([`siml_preserve.py`](siml_preserve.py)) is **tested** - it r
 
 ---
 
-
+## Known limits
 
 - **T1 alters pixels** (imperceptibly) to survive re-encoding - a stated, opt-in trade. A byte-exact raster means T0 + T2 only.
 - **T1 fails** on aggressive downscale-plus-recompression and most crops; that region is T2's job (and T2 needs a network).
@@ -154,7 +162,7 @@ The novelty is the **combination**: a positioned, copyable, semantically-typed t
 
 - [SIML-SPEC-v0.3.md](SIML-SPEC-v0.3.md) - current spec (tri-layer + measured robustness)
 - [SIML-SPEC-v0.4-draft.md](SIML-SPEC-v0.4-draft.md) - draft: verified visible text (checksum-guided OCR, working prototype)
-- [ROADMAP.md](ROADMAP.md) - where this is going, honestly stated
+- [ROADMAP.md](ROADMAP.md) - directions the work could go, for anyone who picks it up
 - [SIML-SPEC-v0.2.md](SIML-SPEC-v0.2.md) - the JUMBF carrier + text-layer schema
 - [siml_watermark.py](siml_watermark.py) - validated Tier-1 reference + self-test
 - [siml_preserve.py](siml_preserve.py) - verified Level-P preservation hook + adversarial tests
@@ -162,11 +170,18 @@ The novelty is the **combination**: a positioned, copyable, semantically-typed t
 
 ---
 
-## Project model & sustainability
+## Project status
 
-The SIML **specification, reader/decoder, reference encoder, and the `preserve()` hook are CC0 (public domain)** - free to implement, fork, and build on, forever, with no royalties or permission. The format is meant to be a neutral, openly-implementable layer that anyone can support, which is the only way it becomes universal.
+This is completed work. The specification is stable at v0.3, the measured
+claims are pinned by a conformance suite, the demo is deployed, and the whole
+of it - spec, writer, reader, watermark, registry protocol, exporters - is
+**CC0 (public domain)**: free to implement, fork, and build on, forever, with
+no royalties and no permission needed.
 
-To sustain ongoing development, the project offers optional paid services *around* the open standard - a hosted registry at scale, premium authoring/export tooling, and managed integrations - none of which are required to use SIML. Reading SIML is always free and open; you never need a paid product or a network connection to display an image's text layer.
+There is no company behind this and no active development planned. If the
+format is useful to you, take it - that is what the license is for. The
+registry protocol is open and content-addressed, so anyone can run one; the
+demo registry is a reference deployment, not a service commitment.
 
 ---
 
@@ -185,7 +200,7 @@ Those are OCR at read time: excellent for casual copying, but inferred, unstruct
 Re-encoding at reasonable resolution: yes, offline, via the pixel watermark. Aggressive downscale and screenshots: yes, via the fingerprint registry (network needed). See the survival table above; the limits are measured and stated.
 
 **Does it change how the image looks?**
-T0 and T2 never touch a pixel. T1 (optional) perturbs luminance imperceptibly (~39 dB PSNR) to survive re-encoding; it is an explicit opt-in trade.
+T0 and T2 never touch a pixel. T1 (optional) perturbs luminance imperceptibly (46.7-49 dB PSNR measured across content classes) to survive re-encoding; it is an explicit opt-in trade.
 
 **How does it relate to C2PA / Content Credentials?**
 SIML rides the same JUMBF container C2PA uses and can be expressed as a C2PA assertion. It is complementary: C2PA answers "where did this image come from," SIML answers "what does the text in it say."
